@@ -7,7 +7,7 @@ import math
 from perlin_noise import PerlinNoise
 
 
-class State(Enum):
+class WildFireState(Enum):
     """
     Represents the state of a cell in the Wildfire Simualtion Cellular Automata.
     """
@@ -33,8 +33,8 @@ class CACell:
         """
         self.x = x
         self.y = y
-        self.previous_state = State.EMPTY
-        self.state = State.EMPTY
+        self.previous_state = WildFireState.EMPTY
+        self.state = WildFireState.EMPTY
         self.fuel = fuel
         self.windspeed = windspeed # speed of wind
         self.wind_direction = direction # direction of windspeed
@@ -50,9 +50,9 @@ class CACell:
         """
         Check if the cell can be updated. (Not every cell type can change or burn)
         """
-        return self.state != State.EMPTY \
-            and self.state != State.ASH \
-            and self.state != State.WATER 
+        return self.state != WildFireState.EMPTY \
+            and self.state != WildFireState.ASH \
+            and self.state != WildFireState.WATER 
 
     def _check_for_ignition(self, neighbors:List[CACell]) -> bool:
         """
@@ -63,7 +63,7 @@ class CACell:
         
         # count the number of burning neighbours and the direction of the fire
         for neighbor in neighbors:
-            if neighbor.state == State.BURNING:
+            if neighbor.state == WildFireState.BURNING:
                 num_burning += 1
                 dx = self.x - neighbor.x
                 dy = self.y - neighbor.y
@@ -87,9 +87,9 @@ class CACell:
         p_ignite = 1 / (1 + math.exp(-self.k * num_burning - wind_alignment - self.base_burn_threshold))
 
         # different types of vegatation has different probabilities of lighting on fire
-        if self.state == State.SHRUB:
+        if self.state == WildFireState.SHRUB:
             p_ignite *= self.veg_shrub_burn_modidifer
-        elif self.state == State.GRASSLAND:
+        elif self.state == WildFireState.GRASSLAND:
             p_ignite *= self.veg_grassland_burn_modifier
 
         return random.random() < p_ignite
@@ -101,7 +101,7 @@ class CACell:
         self.fuel -= 1
         if self.fuel <= 0:
             self.previous_state = self.state
-            self.state = State.ASH
+            self.state = WildFireState.ASH
 
     
     def ignite(self):
@@ -109,7 +109,7 @@ class CACell:
         Ignite the cell.
         """
         self.previous_state = self.state
-        self.state = State.BURNING
+        self.state = WildFireState.BURNING
 
     def update(self, neighbors: List[CACell]):
         """
@@ -118,11 +118,11 @@ class CACell:
         if not self._can_update():
             return
 
-        if self.state != State.BURNING:
+        if self.state != WildFireState.BURNING:
             if self._check_for_ignition(neighbors):
                 self.ignite()
 
-        if self.state == State.BURNING:
+        if self.state == WildFireState.BURNING:
             self._update_burning()
     
 class WildfireCA():
@@ -179,17 +179,17 @@ class WildfireCA():
                 val = max(0.0, min(1.0, val))  # Clamp to [0, 1]
 
                 if val < 0.2:
-                    self.grid[x][y].state = State.WATER
+                    self.grid[x][y].state = WildFireState.WATER
                 elif val < 0.5:
-                    self.grid[x][y].state = State.GRASSLAND
+                    self.grid[x][y].state = WildFireState.GRASSLAND
                 elif val < 0.7:
-                    self.grid[x][y].state = State.SHRUB
+                    self.grid[x][y].state = WildFireState.SHRUB
                 elif val < 0.8:
-                    self.grid[x][y].state = State.TREE
+                    self.grid[x][y].state = WildFireState.TREE
                 elif val < 0.9:
-                    self.grid[x][y].state = State.HOUSING
+                    self.grid[x][y].state = WildFireState.HOUSING
                 else:
-                    self.grid[x][y].state = State.URBAN
+                    self.grid[x][y].state = WildFireState.URBAN
 
 
     def _generate_wind(self, seed=None):

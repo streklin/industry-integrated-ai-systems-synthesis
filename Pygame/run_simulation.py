@@ -3,28 +3,48 @@ import sys
 import random
 import pygame
 
-# Ensure the parent directory is in sys.path so we can import WildFireCA
+# Ensure the parent directory is in sys.path so we can import WildFireCA and HumanAgents
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # Ensure Pygame directory is also in sys.path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from WildFireCA.WildFireCA import WildfireCA, State
+from WildFireCA.WildFireCA import WildfireCA, WildFireState
+from HumanAgents.HumanAgent import HumanAgent, HumanAgentState
 from visualizer import WildfireVisualizer
 
 def main():
     # Simulation Parameters
     width, height = 100, 100
     seed = 42
+    num_humans = 15
+    cell_size = 10 # 10 pixels per cell gives a 1000x1000 window
     
     print(f"Initializing Wildfire CA simulation on {width}x{height} grid with seed={seed}...")
     ca = WildfireCA(width=width, height=height, seed=seed)
     ca.regenerate(seed=seed)
     
+    # 1. Spawn human agents on random dry land (not water, not burning)
+    human_agents = []
+    attempts = 0
+    while len(human_agents) < num_humans and attempts < 1000:
+        x = random.randint(0, width - 1)
+        y = random.randint(0, height - 1)
+        cell = ca.grid[x][y]
+        
+        if cell.state not in [WildFireState.WATER, WildFireState.BURNING, WildFireState.FIRE]:
+            # Alternate activity types
+            activity = random.choice([HumanAgentState.HIKING, HumanAgentState.CAMPING])
+            # Bounding limits should be width-1 and height-1 to match index ranges
+            agent = HumanAgent(x=x, y=y, max_x=width - 1, max_y=height - 1, activity_type=activity)
+            human_agents.append(agent)
+        attempts += 1
+
+    print(f"Successfully spawned {len(human_agents)} human agents in the wilderness.")
+    
     # Ignite a starting fire in the middle of the grid
     center_x = width // 2
     center_y = height // 2
     
-    # Search nearby to find a flammable cell (Grass, Shrub, or Tree) to ignite
     ignited = False
     for r in range(10):
         for dx in range(-r, r + 1):
@@ -33,7 +53,7 @@ def main():
                 ty = center_y + dy
                 if 0 <= tx < width and 0 <= ty < height:
                     cell = ca.grid[tx][ty]
-                    if cell.state in [State.GRASSLAND, State.SHRUB, State.TREE]:
+                    if cell.state in [WildFireState.GRASSLAND, WildFireState.SHRUB, WildFireState.TREE]:
                         cell.ignite()
                         print(f"Starting fire ignited at ({tx}, {ty}) state={cell.state.name}")
                         ignited = True
@@ -44,15 +64,13 @@ def main():
             break
 
     if not ignited:
-        # Fallback: force ignite the center cell
         ca.grid[center_x][center_y].ignite()
         print(f"Forced start fire ignited at center ({center_x}, {center_y})")
 
-    # Initialize Pygame Visualizer
-    # Cell size of 8 pixels gives an 800x800 window
-    visualizer = WildfireVisualizer(ca, cell_size=8, window_title="Wildfire CA Simulation")
+    # Initialize Pygame Visualizer (passing human agents list)
+    visualizer = WildfireVisualizer(ca, human_agents=human_agents, cell_size=cell_size, window_title="Wildfire & Human Agents Simulation")
 
-    # Initial draw before starting simulation updates
+    # Initial draw before simulation updates
     visualizer.refresh()
     
     running = True
@@ -61,27 +79,40 @@ def main():
     print("Starting simulation loop. Press ESC or close the window to quit.")
     
     while running:
-        # Check if there are any active burning cells
+        # Check active fire count
         burning_cells = sum(
             1 for x in range(width) for y in range(height) 
-            if ca.grid[x][y].state == State.BURNING
+            if ca.grid[x][y].state == WildFireState.BURNING
         )
         
-        # Update CA simulation by a single step
+        # 2. Update human agents logic
+        for agent in human_agents:
+            # Update position / transition (only moves if not a casualty)
+            agent.update()
+            
+            # Check if current cell is burning
+            if ca.grid[agent.x][agent.y].state == WildFireState.BURNING:
+                agent.mark_casualty()
+        
+        # 3. Update CA simulation step
         ca.update()
         step += 1
         
-        # Refresh the pygame window
+        # Refresh the pygame visualization
         visualizer.refresh()
         
-        # Show progress in the console
+        # Calculate human statistics
+        casualties = sum(1 for a in human_agents if a.activity_type == HumanAgentState.CASUALTY)
+        alive = len(human_agents) - casualties
+        
+        # Show status in console
         if step % 10 == 0 or burning_cells == 0:
-            print(f"Step {step}: {burning_cells} cells currently burning.")
+            print(f"Step {step:02d} | Burning Cells: {burning_cells:4d} | Humans Alive: {alive:2d} | Casualties: {casualties:2d}")
             
-        # If fire has burned out, pause slightly then wait
+        # If fire has burned out, wait for exit
         if burning_cells == 0:
-            print("The fire has completely burned out. Press ESC or close window to exit.")
-            # Keep window open so the user can inspect the final result
+            print(f"\nFire burned out at step {step}. Final Humans State - Alive: {alive}, Casualties: {casualties}.")
+            print("Press ESC or close the window to exit.")
             while True:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
@@ -93,7 +124,7 @@ def main():
                             sys.exit()
                 pygame.time.delay(100)
 
-        # Control simulation speed (approx 10 steps per second)
+        # Control simulation speed (10 FPS)
         visualizer.clock.tick(10)
 
 if __name__ == "__main__":
