@@ -50,6 +50,7 @@ class WildfireVisualizer:
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption(window_title)
         self.clock = pygame.time.Clock()
+        self.fps = 1  # Default simulation speed (steps per second)
 
     def _draw_happy_face(self, cx: int, cy: int, size: int):
         """
@@ -101,6 +102,17 @@ class WildfireVisualizer:
                 if event.key in [pygame.K_ESCAPE, pygame.K_q]:
                     pygame.quit()
                     sys.exit()
+                elif event.key == pygame.K_UP:
+                    self.fps = min(60, self.fps + 1)
+                    print(f"Simulation speed increased to {self.fps} FPS")
+                elif event.key == pygame.K_DOWN:
+                    self.fps = max(1, self.fps - 1)
+                    print(f"Simulation speed decreased to {self.fps} FPS")
+                elif event.key == pygame.K_s:
+                    import time
+                    os.makedirs("screenshots", exist_ok=True)
+                    filename = f"screenshots/screenshot_{int(time.time())}.png"
+                    self.save_screenshot(filename)
 
         # Clear screen
         self.screen.fill((0, 0, 0))
@@ -132,3 +144,17 @@ class WildfireVisualizer:
 
         # Update full display
         pygame.display.flip()
+
+    def save_screenshot(self, filename: str):
+        """
+        Saves the current display frame to a file.
+        
+        Args:
+            filename: Path to the image file to save (e.g. 'screenshots/step_001.png')
+        """
+        dirname = os.path.dirname(filename)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
+        pygame.image.save(self.screen, filename)
+        print(f"Screenshot saved to {filename}")
+

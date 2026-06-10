@@ -41,8 +41,8 @@ class CACell:
         self.base_burn_threshold = base_burn_threshold
 
         # will need to find some physical justification for values like this.
-        self.veg_shrub_burn_modidifer = 0.5
-        self.veg_grassland_burn_modifier = 0.25
+        self.veg_shrub_burn_modidifer = 0.3
+        self.veg_grassland_burn_modifier = 0.1
 
         self.k = 1 # scaling paramter for ignition probability
 
@@ -52,7 +52,8 @@ class CACell:
         """
         return self.state != WildFireState.EMPTY \
             and self.state != WildFireState.ASH \
-            and self.state != WildFireState.WATER 
+            and self.state != WildFireState.WATER \
+            and self.state != WildFireState.URBAN
 
     def _check_for_ignition(self, neighbors:List[CACell]) -> bool:
         """
@@ -124,6 +125,14 @@ class CACell:
 
         if self.state == WildFireState.BURNING:
             self._update_burning()
+
+    def extinguish(self):
+        """
+        Returns a burning cell state to it pre-burn state. (Fuel is not replenished)
+        """
+        if self.state != WildFireState.BURNING:
+            return
+        self.state = self.previous_state
     
 class WildfireCA():
     """
@@ -178,16 +187,20 @@ class WildfireCA():
                 val = (val + 1) / 2
                 val = max(0.0, min(1.0, val))  # Clamp to [0, 1]
 
-                if val < 0.2:
+                if val < 0.3:
                     self.grid[x][y].state = WildFireState.WATER
                 elif val < 0.5:
                     self.grid[x][y].state = WildFireState.GRASSLAND
-                elif val < 0.7:
+                    self.grid[x][y].fuel = 2
+                elif val < 0.65:
                     self.grid[x][y].state = WildFireState.SHRUB
-                elif val < 0.8:
+                    self.grid[x][y].fuel = 8
+                elif val < 0.85:
                     self.grid[x][y].state = WildFireState.TREE
-                elif val < 0.9:
+                    self.grid[x][y].fuel = 20
+                elif val < 0.95:
                     self.grid[x][y].state = WildFireState.HOUSING
+                    self.grid[x][y].fuel = 40
                 else:
                     self.grid[x][y].state = WildFireState.URBAN
 

@@ -15,7 +15,7 @@ from visualizer import WildfireVisualizer
 def main():
     # Simulation Parameters
     width, height = 100, 100
-    seed = 42
+    seed = random.randint(0, 100000)
     num_humans = 15
     cell_size = 10 # 10 pixels per cell gives a 1000x1000 window
     
@@ -124,8 +124,8 @@ def main():
                             sys.exit()
                 pygame.time.delay(100)
 
-        # Control simulation speed (10 FPS)
-        visualizer.clock.tick(10)
+        # Control simulation speed dynamically using visualizer.fps
+        visualizer.clock.tick(visualizer.fps)
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,159 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/27.0.9 Chrome/134.0.6998.205 Electron/35.4.0 Safari/537.36" version="27.0.9">
+  <diagram name="Page-1" id="PI72dZobp8W2TmJ0MWWV">
+    <mxGraphModel dx="3227" dy="1402" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="-BKJ1onnYNfLf-bJvCuk-1" target="-BKJ1onnYNfLf-bJvCuk-2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="-BKJ1onnYNfLf-bJvCuk-1" target="-BKJ1onnYNfLf-bJvCuk-3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="-BKJ1onnYNfLf-bJvCuk-1" target="-BKJ1onnYNfLf-bJvCuk-4" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="-BKJ1onnYNfLf-bJvCuk-1" target="-BKJ1onnYNfLf-bJvCuk-8" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="yNSJN4WaUu4dFpf9RqAE-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="-BKJ1onnYNfLf-bJvCuk-1" target="-BKJ1onnYNfLf-bJvCuk-17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-1" value="Environment Module" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-780" y="205" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-2" value="Terrain Generator" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-360" y="125" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-3" value="CA Wildfire Simulator" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-360" y="205" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-4" value="Stochastic Human Agents" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-360" y="285" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="-BKJ1onnYNfLf-bJvCuk-8" target="-BKJ1onnYNfLf-bJvCuk-10" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="yNSJN4WaUu4dFpf9RqAE-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="-BKJ1onnYNfLf-bJvCuk-8" target="-BKJ1onnYNfLf-bJvCuk-29">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-830" y="455" />
+              <mxPoint x="-830" y="985" />
+              <mxPoint x="-595" y="985" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-8" value="Risk Prediction Module" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-590" y="425" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-10" value="Semantic Segmentation / Risk Predictor Model" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-360" y="425" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-12" value="Semi-Autonomous Wildfire Monitoring &amp;amp; Control System Framework&lt;div&gt;Gene Foxwel 2026&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1;fontSize=18;" parent="1" vertex="1">
+          <mxGeometry x="-780" y="45" width="770" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-13" value="Uses Perlin Noise to generate randomized terrain." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="40" y="140" width="300" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-14" value="Stochastic Cellular Automata is used to simulate the propogation of wildfire. Takes into account vegetation type, and wind factors. Wind is assumed static." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="40" y="215" width="300" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-15" value="A handful of humans are simulated as doing a random walk through the forest when the fire starts." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="40" y="300" width="300" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-16" value="A semantic segmentation model (UNet) is used to label risk level of each cell. i.e. which cells are in danger of buring down in the forseeable future." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="40" y="425" width="300" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="-BKJ1onnYNfLf-bJvCuk-17" target="-BKJ1onnYNfLf-bJvCuk-20" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="-BKJ1onnYNfLf-bJvCuk-17" target="-BKJ1onnYNfLf-bJvCuk-19" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-17" value="UAV Dispatch Controller" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-780" y="605" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-18" value="Recon Agent" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-180" y="525" width="170" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-19" value="Fire Fighting Agent" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-360" y="525" width="170" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-20" value="Dispatch Agent" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-360" y="685" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-25" value="Rules based Agents. The Dispatch Agent provides waypoints for these drones. Dispatch Agent only has a limited number of each drone type available. (More Recon drones than fire-fighting drones are available)" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="40" y="525" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-28" value="A Decision Transformer RL Agent is used to combine visual data from the Risk Predication model, reports from the UAV&#39;s and user priorities to allocate UAV resources to the appropriate fire fighting zones." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="40" y="675" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-41" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="-BKJ1onnYNfLf-bJvCuk-29" target="-BKJ1onnYNfLf-bJvCuk-17" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-800" y="935" />
+              <mxPoint x="-800" y="635" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-49" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="-BKJ1onnYNfLf-bJvCuk-29" target="-BKJ1onnYNfLf-bJvCuk-30" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-29" value="Command Workflow" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-770" y="905" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-30" value="Long Term Planner" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-375" y="995" width="165" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-31" value="Chatbot" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-190" y="995" width="165" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-35" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.472;entryY=-0.003;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="-BKJ1onnYNfLf-bJvCuk-17" target="-BKJ1onnYNfLf-bJvCuk-29" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-36" value="Based on Project 4&amp;nbsp;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="40" y="465" width="300" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-37" value="Based on Project 5" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="40" y="735" width="300" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-38" value="Uses a knowledge graph to represent long term fire fighting strategy and adapt to user override requests. Sends commands to the dispatch agent." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="40" y="800" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-39" value="Based on Project 6" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="40" y="850" width="300" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-40" value="Allows a human user to inquire about the state of the fire fighting process as well as reprioritize the current goals." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="40" y="995" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-43" value="" style="shape=flexArrow;endArrow=classic;startArrow=classic;html=1;rounded=0;" parent="1" edge="1">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="-190" y="675" as="sourcePoint" />
+            <mxPoint x="-190" y="595" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-44" value="Two Way Communication With Dispatch" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="-170" y="605" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-45" value="Adaptive Knowledge Graph Memory System" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-375" y="800" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-46" value="" style="shape=flexArrow;endArrow=classic;startArrow=classic;html=1;rounded=0;" parent="1" edge="1">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="-200.5" y="970" as="sourcePoint" />
+            <mxPoint x="-200.5" y="890" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-47" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.65;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="-BKJ1onnYNfLf-bJvCuk-29" target="-BKJ1onnYNfLf-bJvCuk-45" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-BKJ1onnYNfLf-bJvCuk-52" value="Both modules can read and write to the underlying knowledge graph." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="-170" y="900" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="yNSJN4WaUu4dFpf9RqAE-3" value="Long Term Planner takes input both from periodic updates via Environmental / Risk Image snapshots as well as from Human Operator Instructuctions (via the chatbot)." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="-442.5" y="1080" width="300" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
