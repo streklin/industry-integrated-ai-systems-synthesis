@@ -1,6 +1,8 @@
+import math
+import numpy as np
 from enum import Enum
 from WildFireCA.WildFireCA import CACell, WildFireState
-from HumanAgents import HumanAgent
+from HumanAgents.HumanAgent import HumanAgent
 
 class UAVState(Enum):
     """
@@ -30,7 +32,7 @@ class UAVType(Enum):
     EXTINGUISH = 3
 
 class UAVBase:
-    def __init__(self, turn_rate:float = 0.0872665, max_velocity:float = 5.0, width:float = 100, height:float = 100):
+    def __init__(self, turn_rate:float = 0.16, max_velocity:float = 1.0, width:float = 100, height:float = 100):
         """
         The UAVBase class is the base class for all UAV agents.
         It is responsible for:
@@ -71,7 +73,9 @@ class UAVBase:
         # not a perfect representation but good enough for representation purposes.
         self.detection_range = 1.0
 
+        self.turn_rate = turn_rate
         self.uav_type:UAVType = UAVType.BASE
+        self.latest_messages = [self.x, self.y, self.fuel, "NO FIRE", "NO HUMAN"]
     
     def go_home(self):
         """
@@ -80,7 +84,7 @@ class UAVBase:
         self.set_waypoint(self.home_base[0], self.home_base[1])
         self.state = UAVState.RETURNING
 
-    def _get_detected_cells(self, ca_grid:list[list[CACell]]) -> list[tuple(int, int)]:
+    def _get_detected_cells(self, ca_grid:list[list[CACell]]) -> list[tuple[int, int]]:
         """
         Get the cells that are in the detection range of the UAV.
         
@@ -120,6 +124,15 @@ class UAVBase:
         Returns:
             a list of messages to be given to dispatch. defaults to an empty array.
         """
+        if self.state == UAVState.HANGER:
+            self.velocity = 0.0
+            self.acceleration = 0.0
+            self.x = self.home_base[0]
+            self.y = self.home_base[1]
+            messages = [self.x, self.y, self.fuel, "NO FIRE", "NO HUMAN"]
+            self.latest_messages = messages
+            return messages
+
         self.velocity = min(self.velocity + self.acceleration * delta_time, self.max_velocity)
         
         self.x += self.velocity * delta_time * np.cos(self.bank_angle)
@@ -159,6 +172,7 @@ class UAVBase:
         else:
             messages.append("NO HUMAN")
         
+        self.latest_messages = messages
         return messages
         
     def set_acceleration(self, acceleration: float):
@@ -191,18 +205,32 @@ class UAVBase:
         """
         Sets the bank angle of the UAV to turn towards the waypoint.
         """
+        dx = self.waypoint_x - self.x
+        dy = self.waypoint_y - self.y
         dist = math.hypot(dx, dy)
         if dist < self.velocity * delta_time:
             self.state = UAVState.CRUISING
+            # If we returned home base, refuel and reset state
+            if self.waypoint_x == self.home_base[0] and self.waypoint_y == self.home_base[1]:
+                self.fuel = 100.0
+                self.state = UAVState.HANGER
             return
 
         # update the angular velocity to turn towards the waypoint
         angle = math.atan2(dy, dx)
         
-        if angle > self.bank_angle + self.turn_rate:
+        # Calculate shortest angular difference wrapped to [-pi, pi]
+        diff = (angle - self.bank_angle + math.pi) % (2 * math.pi) - math.pi
+        
+        if diff > self.turn_rate:
             self.bank_angle += self.turn_rate
-        elif angle < self.bank_angle - self.turn_rate:
+        elif diff < -self.turn_rate:
             self.bank_angle -= self.turn_rate
+        else:
+            self.bank_angle = angle
+            
+        # Keep bank_angle wrapped to [-pi, pi]
+        self.bank_angle = (self.bank_angle + math.pi) % (2 * math.pi) - math.pi
         
 
 class ReconUAV(UAVBase):
@@ -213,11 +241,11 @@ class ReconUAV(UAVBase):
     - Sees Fire - this is true if there is fire in the ReconUAV's detection range.
     - Sees People - this is true if there is a human agent in the ReconUAV's detection range.
     """
-    def __init__(self, turn_rate:float = 0.0872665, max_velocity:float = 7.0, width:float = 100, height:float = 100):
+    def __init__(self, turn_rate:float = math.pi / 10, max_velocity:float = 2.0, width:float = 100, height:float = 100):
         super().__init__(turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.RECON
 
-    def update(self, delta_time: float, ca_grid:list[list[CACell]]) -> list[str]:
+    def update(self, delta_time: float, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> list[str]:
         """
         Update the state of the UAV.
         
@@ -226,8 +254,8 @@ class ReconUAV(UAVBase):
         Returns:
             a list of messages to be given to dispatch. defaults to an empty array.
         """
-        messages = super().update(delta_time, ca_grid)
-        if self.state == UAVState.TRAVELLING or self.state == UAVState.RETURNING:
+        messages = super().update(delta_time, ca_grid, humans)
+        if self.state == UAVState.TRAVELLING or self.state == UAVState.RETURNING or self.state == UAVState.HANGER:
             return messages
 
         # if we don't see fire or a human we return to the last known waypoint
@@ -237,7 +265,7 @@ class ReconUAV(UAVBase):
             return messages
 
         # keep around where we are
-        if "FIRE" in messages or "HUMAN":
+        if "FIRE" in messages or "HUMAN" in messages:
             self.set_waypoint(messages[0], messages[1])
         
         return messages
@@ -253,15 +281,16 @@ class FireControlUAV(UAVBase):
     If it sees fire, it will deploy its suppression system to supress the fire.
     Once deployed, the Agent will return to the runway.
     """
-    def __init__(self, turn_rate:float = 0.0872665, max_velocity:float = 5.0, width:float = 100, height:float = 100):
+    def __init__(self, turn_rate:float = math.pi / 10, max_velocity:float = 1.0, width:float = 100, height:float = 100):
         super().__init__(turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.EXTINGUISH
 
-    def update(self, delta_time: float, ca_grid:list[list[CACell]]) -> list[str]:
+    def update(self, delta_time: float, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> list[str]:
         """
+        Update the state of the UAV.
         """
-        mesages = super().update(delta_time, ca_grid)
-        if self.state == UAVState.TRAVELLING or self.state == UAVState.RETURNING:
+        messages = super().update(delta_time, ca_grid, humans)
+        if self.state == UAVState.TRAVELLING or self.state == UAVState.RETURNING or self.state == UAVState.HANGER:
             return messages
 
         # if we don't see fire, we return to the last known waypoint
@@ -270,12 +299,12 @@ class FireControlUAV(UAVBase):
             self.state = UAVState.TRAVELLING # should head back to the last set waypoint - NOT GO HOME
             return messages
 
+        print(f"UAV EXTINGUISHING FIRE at ({messages[0]}, {messages[1]})")
+
         # extinguish all visible fire and return home
         detected_cells = self._get_detected_cells(ca_grid)
 
         for cell in detected_cells:
             ca_grid[cell[0]][cell[1]].extinguish()
-
-        self.go_home()
-
+            
         return messages

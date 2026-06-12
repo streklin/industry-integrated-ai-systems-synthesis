@@ -128,11 +128,11 @@ class CACell:
 
     def extinguish(self):
         """
-        Returns a burning cell state to it pre-burn state. (Fuel is not replenished)
+        Returns a burning cell state to ash.
         """
         if self.state != WildFireState.BURNING:
             return
-        self.state = self.previous_state
+        self.state = WildFireState.ASH
     
 class WildfireCA():
     """
@@ -191,16 +191,16 @@ class WildfireCA():
                     self.grid[x][y].state = WildFireState.WATER
                 elif val < 0.5:
                     self.grid[x][y].state = WildFireState.GRASSLAND
-                    self.grid[x][y].fuel = 2
+                    self.grid[x][y].fuel = 8
                 elif val < 0.65:
                     self.grid[x][y].state = WildFireState.SHRUB
-                    self.grid[x][y].fuel = 8
+                    self.grid[x][y].fuel = 16
                 elif val < 0.85:
                     self.grid[x][y].state = WildFireState.TREE
-                    self.grid[x][y].fuel = 20
+                    self.grid[x][y].fuel = 40
                 elif val < 0.95:
                     self.grid[x][y].state = WildFireState.HOUSING
-                    self.grid[x][y].fuel = 40
+                    self.grid[x][y].fuel = 80
                 else:
                     self.grid[x][y].state = WildFireState.URBAN
 

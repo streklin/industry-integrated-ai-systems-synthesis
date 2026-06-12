@@ -141,61 +141,43 @@ class DecisionTransformer(nn.Module):
 
         # size of the hidden layer
         self.hidden_size = config["embed_dim"]
+        self.vocab_size = config["vocab_size"]
+        self.context_size = config.get("context_size", config.get("max_ep_length", 1024))
 
-        # maximum number of timetimes in an episode
-        max_ep_length = config["max_ep_length"]
-        
-        # dimension of the state space
-        self.state_dim = config["state_dim"]
-
-        # dimension of the action space.
-        self.action_dim = config["action_dim"]
-
-        # embedding layers for timestamps, returns, states, and actions (t,r,s,a)
-        # remember, at each time timestamp, we have a triple:
-        #   r = expected return
-        #   s = state
-        #   a = action
-        self.embed_timestep = nn.Embedding(max_ep_length, self.hidden_size)
-        self.embed_return = nn.Linear(1, self.hidden_size)
-        self.embed_state = nn.Linear(self.state_dim, self.hidden_size)
-        self.embed_action = nn.Linear(self.action_dim, self.hidden_size)
+        # Discrete embedding and position embedding layers
+        self.embed_token = nn.Embedding(self.vocab_size, self.hidden_size)
+        self.embed_pos = nn.Embedding(self.context_size, self.hidden_size)
 
         # Normalization of the embedding layers
         self.embed_ln = nn.LayerNorm(self.hidden_size)
         
-        # action prediction layer
-        self.predict_action = nn.Linear(self.hidden_size, self.action_dim)
-
-        # reward prediction layer
-        self.predict_reward = nn.Linear(self.hidden_size, 1) # only one reward to predict at each time step, so output dimension is 1.
+        # Token prediction head
+        self.predict_token = nn.Linear(self.hidden_size, self.vocab_size)
 
         # create an instance of the transformer model
         # this will be used to generate the next steps in the sequence.
         self.transformer = TransformerModel(config)
 
-    def forward(self, states, actions, returns_to_go, timesteps):
+    def forward(self, token_ids):
         """
-        Generate the next action using the previous Returns, States, Actions, and Timestamps.
-        Based on the DecisionTransformer algorithm
+        Generate predictions for the next token in the sequence.
         """
-        batch_size, seq_length = states.shape[0], states.shape[1]
+        batch_size, seq_length = token_ids.shape
         
-        pos_embedding = self.embed_timestep(timesteps)
+        # Position indices: [0, 1, ..., seq_length - 1]
+        device = token_ids.device
+        positions = torch.arange(seq_length, dtype=torch.long, device=device).unsqueeze(0) # (1, seq_length)
         
-        state_embeddings = self.embed_state(states) + pos_embedding
-        action_embeddings = self.embed_action(actions) + pos_embedding
-        returns_embeddings = self.embed_return(returns_to_go) + pos_embedding
+        # Embed tokens and positions
+        token_embeddings = self.embed_token(token_ids) # (B, C, embed_dim)
+        position_embeddings = self.embed_pos(positions) # (1, C, embed_dim)
         
-        stacked_inputs = torch.stack(
-            (returns_embeddings, state_embeddings, action_embeddings), dim=1
-        ).permute(0, 2, 1, 3).reshape(batch_size, 3*seq_length, self.hidden_size)
+        input_embeddings = self.embed_ln(token_embeddings + position_embeddings)
         
-        input_embeddings = self.embed_ln(stacked_inputs)
+        # Pass to the transformer blocks
+        hidden_states = self.transformer(input_embeddings) # (B, C, embed_dim)
         
-        hidden_states = self.transformer(input_embeddings)
-
-        action_preds = torch.tanh(self.predict_action(hidden_states[:, 1::3, :]))
-        reward_preds = self.predict_reward(hidden_states[:, 1::3, :]) # we are making predictions for a continious system with actions between [-1, 1]
+        # Predict logits over vocabulary for each position
+        logits = self.predict_token(hidden_states) # (B, C, vocab_size)
         
-        return action_preds, reward_preds
+        return logits

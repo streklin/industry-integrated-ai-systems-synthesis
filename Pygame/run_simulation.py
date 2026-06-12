@@ -11,6 +11,8 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from WildFireCA.WildFireCA import WildfireCA, WildFireState
 from HumanAgents.HumanAgent import HumanAgent, HumanAgentState
 from visualizer import WildfireVisualizer
+from UAVAgents.UAVBase import ReconUAV, FireControlUAV, UAVState, UAVType
+from UAVAgents.UAVSimulatorModule import UAVSimulator
 
 def main():
     # Simulation Parameters
@@ -41,34 +43,44 @@ def main():
 
     print(f"Successfully spawned {len(human_agents)} human agents in the wilderness.")
     
-    # Ignite a starting fire in the middle of the grid
-    center_x = width // 2
-    center_y = height // 2
-    
-    ignited = False
-    for r in range(10):
-        for dx in range(-r, r + 1):
-            for dy in range(-r, r + 1):
-                tx = center_x + dx
-                ty = center_y + dy
-                if 0 <= tx < width and 0 <= ty < height:
-                    cell = ca.grid[tx][ty]
-                    if cell.state in [WildFireState.GRASSLAND, WildFireState.SHRUB, WildFireState.TREE]:
-                        cell.ignite()
-                        print(f"Starting fire ignited at ({tx}, {ty}) state={cell.state.name}")
-                        ignited = True
-                        break
-            if ignited:
-                break
-        if ignited:
-            break
-
-    if not ignited:
+    # Ignite a starting fire in any burnable cell on the grid randomly
+    burnable_cells = []
+    for x in range(width):
+        for y in range(height):
+            cell = ca.grid[x][y]
+            if cell.state in [WildFireState.GRASSLAND, WildFireState.SHRUB, WildFireState.TREE, WildFireState.HOUSING]:
+                burnable_cells.append(cell)
+                
+    if burnable_cells:
+        selected_cell = random.choice(burnable_cells)
+        selected_cell.ignite()
+        print(f"Starting fire ignited randomly at ({selected_cell.x}, {selected_cell.y}) state={selected_cell.state.name}")
+    else:
+        center_x = width // 2
+        center_y = height // 2
         ca.grid[center_x][center_y].ignite()
         print(f"Forced start fire ignited at center ({center_x}, {center_y})")
 
-    # Initialize Pygame Visualizer (passing human agents list)
-    visualizer = WildfireVisualizer(ca, human_agents=human_agents, cell_size=cell_size, window_title="Wildfire & Human Agents Simulation")
+    # Initialize UAV simulator and agents at home base (20, 20)
+    recon_uav = ReconUAV(width=width, height=height)
+    recon_uav.x = 20.0
+    recon_uav.y = 20.0
+    recon_uav.state = UAVState.HANGER
+    recon_uav.detection_range = 5.0
+    recon_uav.set_waypoint(50.0, 50.0) # Start patrol towards center
+    recon_uav.velocity = 1.0
+
+    extinguish_uav = FireControlUAV(width=width, height=height)
+    extinguish_uav.x = 20.0
+    extinguish_uav.y = 20.0
+    extinguish_uav.state = UAVState.HANGER
+    extinguish_uav.detection_range = 3.0
+    extinguish_uav.velocity = 0.5
+
+    uav_simulator = UAVSimulator([recon_uav, extinguish_uav])
+
+    # Initialize Pygame Visualizer (passing human agents and UAV lists)
+    visualizer = WildfireVisualizer(ca, human_agents=human_agents, uavs=uav_simulator.uavs, cell_size=cell_size, window_title="Wildfire, Humans & UAV Simulation")
 
     # Initial draw before simulation updates
     visualizer.refresh()
@@ -94,8 +106,22 @@ def main():
             if ca.grid[agent.x][agent.y].state == WildFireState.BURNING:
                 agent.mark_casualty()
         
-        # 3. Update CA simulation step
-        ca.update()
+        # 3. Update UAV simulation and Dispatch Decision logic
+        uav_simulator.update(delta_time=1.0, ca_grid=ca.grid, humans=human_agents)
+        
+        # Dispatch logic: if Recon UAV detects a fire, and Extinguish UAV is waiting at base, deploy it!
+        recon_messages = recon_uav.latest_messages
+        if "FIRE" in recon_messages:
+            if extinguish_uav.state == UAVState.HANGER:
+                fire_x = recon_uav.x
+                fire_y = recon_uav.y
+                extinguish_uav.set_waypoint(fire_x, fire_y)
+                extinguish_uav.set_acceleration(1.0) # Accelerate to target
+                print(f"[Dispatch] Recon UAV detected fire! Deploying Extinguish UAV to coordinates: ({fire_x:.1f}, {fire_y:.1f})")
+
+        # 4. Update CA simulation step (once every 10 steps)
+        if step % 10 == 0:
+            ca.update()
         step += 1
         
         # Refresh the pygame visualization

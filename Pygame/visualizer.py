@@ -7,24 +7,27 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from WildFireCA.WildFireCA import WildFireState, WildfireCA
 from HumanAgents.HumanAgent import HumanAgent, HumanAgentState
+from UAVAgents.UAVBase import UAVType
 
 
 class WildfireVisualizer:
     """
     Handles visualizing the current state of a WildfireCA simulation grid and Human Agents using Pygame.
     """
-    def __init__(self, ca: WildfireCA, human_agents=None, cell_size: int = 10, window_title: str = "Wildfire CA Simulation"):
+    def __init__(self, ca: WildfireCA, human_agents=None, uavs=None, cell_size: int = 10, window_title: str = "Wildfire CA Simulation"):
         """
         Initialize the visualizer.
         
         Args:
             ca: The WildfireCA simulation instance to visualize.
             human_agents: Optional list of HumanAgent instances.
+            uavs: Optional list of UAV instances.
             cell_size: Size in pixels of each grid cell.
             window_title: Window title.
         """
         self.ca = ca
         self.human_agents = human_agents if human_agents is not None else []
+        self.uavs = uavs if uavs is not None else []
         self.cell_size = cell_size
         self.width = ca.width * cell_size
         self.height = ca.height * cell_size
@@ -50,7 +53,7 @@ class WildfireVisualizer:
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption(window_title)
         self.clock = pygame.time.Clock()
-        self.fps = 1  # Default simulation speed (steps per second)
+        self.fps = 10  # Default simulation speed (steps per second)
 
     def _draw_happy_face(self, cx: int, cy: int, size: int):
         """
@@ -141,6 +144,48 @@ class WildfireVisualizer:
                 self._draw_skull(cx, cy, self.cell_size)
             else:
                 self._draw_happy_face(cx, cy, self.cell_size)
+
+        # Draw home base
+        home_x = int((20) * self.cell_size)
+        home_y = int((20) * self.cell_size)
+        pygame.draw.rect(
+            self.screen, 
+            (0, 191, 255),  # Deep Sky Blue
+            pygame.Rect(home_x - 8, home_y - 8, 16, 16),
+            2
+        )
+        pygame.draw.rect(
+            self.screen,
+            (255, 255, 255),
+            pygame.Rect(home_x - 4, home_y - 4, 8, 8)
+        )
+
+        # Draw UAV agents
+        for uav in self.uavs:
+            cx = int(uav.x * self.cell_size)
+            cy = int(uav.y * self.cell_size)
+            
+            # Determine color
+            if uav.uav_type == UAVType.RECON:
+                color = (255, 255, 0)      # Yellow
+            elif uav.uav_type == UAVType.EXTINGUISH:
+                color = (0, 255, 255)      # Cyan
+            else:
+                color = (255, 0, 255)      # Magenta
+
+            # Draw detection range outline
+            detection_radius = int(uav.detection_range * self.cell_size)
+            pygame.draw.circle(self.screen, (100, 149, 237), (cx, cy), detection_radius, 1) # Cornflower Blue
+
+            # Draw waypoint path
+            if uav.waypoint_x != uav.x or uav.waypoint_y != uav.y:
+                target_x = int(uav.waypoint_x * self.cell_size)
+                target_y = int(uav.waypoint_y * self.cell_size)
+                pygame.draw.line(self.screen, (180, 180, 180), (cx, cy), (target_x, target_y), 1)
+
+            # Draw the drone body and border
+            pygame.draw.circle(self.screen, color, (cx, cy), 6)
+            pygame.draw.circle(self.screen, (0, 0, 0), (cx, cy), 6, 1)
 
         # Update full display
         pygame.display.flip()

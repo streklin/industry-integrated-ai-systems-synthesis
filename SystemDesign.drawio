@@ -1,5 +1,5 @@
-<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/27.0.9 Chrome/134.0.6998.205 Electron/35.4.0 Safari/537.36" version="27.0.9">
-  <diagram name="Page-1" id="PI72dZobp8W2TmJ0MWWV">
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/27.0.9 Chrome/134.0.6998.205 Electron/35.4.0 Safari/537.36" version="27.0.9" pages="2">
+  <diagram name="System Arch" id="PI72dZobp8W2TmJ0MWWV">
     <mxGraphModel dx="3227" dy="1402" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -152,6 +152,164 @@
         </mxCell>
         <mxCell id="yNSJN4WaUu4dFpf9RqAE-3" value="Long Term Planner takes input both from periodic updates via Environmental / Risk Image snapshots as well as from Human Operator Instructuctions (via the chatbot)." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
           <mxGeometry x="-442.5" y="1080" width="300" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="Sp_jxS7yvcJO-GoIonZv" name="UAV Communications Module">
+    <mxGraphModel dx="2633" dy="1094" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-8" value="Mission Support Transmission Block" style="swimlane;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-830" y="110" width="920" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-10" value="PRIORITIZE" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="20" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-11" value="X POS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="160" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-12" value="Y POS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="290" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-13" value="DEPRIORITIZE" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="20" y="110" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-14" value="X POS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="160" y="110" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-15" value="Y POS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="290" y="110" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-16" value="SEARCH/RESCUE" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="20" y="180" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-17" value="X POS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="160" y="180" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-18" value="Y POS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="290" y="180" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-20" value="RADIUS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="420" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-21" value="RADIUS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="420" y="110" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-22" value="RADIUS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="420" y="180" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-27" value="END" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="550" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-28" value="END" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="550" y="110" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-29" value="END" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="550" y="180" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-19" value="message structure for commands from mission control to dispatch" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-8">
+          <mxGeometry x="680" y="40" width="240" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="qDg7shfVzSm_Zy9pGrgp-24" value="DISPATCH Actions" style="swimlane;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-830" y="440" width="910" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-2" value="UAV ID" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="150" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-3" value="X POS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="280" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-4" value="Y POS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="410" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-5" value="END" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="540" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-7" value="DEPLOY" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="20" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-8" value="RECALL" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="20" y="110" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-11" value="UAV ID" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="150" y="110" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-12" value="END" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="280" y="110" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-13" value="STATUS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="20" y="180" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-14" value="END" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="150" y="180" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-15" value="Directs all dones to send back a status report." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="290" y="190" width="240" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-6" value="Expected pattern for the DT to generate a command." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="qDg7shfVzSm_Zy9pGrgp-24">
+          <mxGeometry x="670" y="40" width="240" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-16" value="UAV Report" style="swimlane;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-830" y="720" width="1340" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-17" value="UAV" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3tWJZor5lGBoZR9FGoJt-16">
+          <mxGeometry x="20" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-18" value="UAV ID" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3tWJZor5lGBoZR9FGoJt-16">
+          <mxGeometry x="150" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-19" value="STATUS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3tWJZor5lGBoZR9FGoJt-16">
+          <mxGeometry x="285" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-20" value="X POS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3tWJZor5lGBoZR9FGoJt-16">
+          <mxGeometry x="420" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-21" value="Y POS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3tWJZor5lGBoZR9FGoJt-16">
+          <mxGeometry x="550" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-24" value="HUMAN/NOHUMAN" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3tWJZor5lGBoZR9FGoJt-16">
+          <mxGeometry x="680" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-25" value="FIRE/NOFIRE" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3tWJZor5lGBoZR9FGoJt-16">
+          <mxGeometry x="810" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-22" value="END" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3tWJZor5lGBoZR9FGoJt-16">
+          <mxGeometry x="940" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-23" value="Status Report Each drone will send back to the Dispatch Agent on demand." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="3tWJZor5lGBoZR9FGoJt-16">
+          <mxGeometry x="1070" y="50" width="240" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-26" value="&lt;h1&gt;UAV Dispatcher Agent - Observations / Actions / Rewards&lt;/h1&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="-830" y="50" width="880" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-30" value="SECTOR COVERAGE %" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" vertex="1" parent="1">
+          <mxGeometry x="120" y="180" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-31" value="SECTOR FIRE %" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e51400;fontColor=#ffffff;strokeColor=#B20000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="170" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-32" value="GOAL BASED REWARDS" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="120" y="150" width="310" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-33" value="BEHAVIOR BASED REWARDS" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="120" y="260" width="310" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-35" value="HUMAN CASUALTIES" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e51400;fontColor=#ffffff;strokeColor=#B20000;" vertex="1" parent="1">
+          <mxGeometry x="285" y="170" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-37" value="DEPLOYED UAV" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e51400;fontColor=#ffffff;strokeColor=#B20000;" vertex="1" parent="1">
+          <mxGeometry x="120" y="300" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-38" value="BAD COMMAND FORMATING" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e51400;fontColor=#ffffff;strokeColor=#B20000;" vertex="1" parent="1">
+          <mxGeometry x="285" y="300" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-39" value="Points are only scored for monitoring / fire-fighting in PRIORITIZED sectors" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="120" y="110" width="220" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="3tWJZor5lGBoZR9FGoJt-40" value="RURAL AREA BURNED" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e51400;fontColor=#ffffff;strokeColor=#B20000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="300" width="120" height="80" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
