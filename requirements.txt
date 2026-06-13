@@ -1,0 +1,11 @@
+matplotlib
+numpy
+pandas
+perlin-noise
+Pillow
+pygame
+seaborn
+segmentation-models-pytorch
+torch
+torchvision
+tqdm
