@@ -129,7 +129,7 @@ class UAVBase:
 
     def get_grid_crop_features(self, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> np.ndarray:
         """
-        Extract local grid crop around the UAV as binary feature vectors (Option B).
+        Extract local grid crop around the UAV as binary feature vectors.
         Returns a 1D vector of shape (2 * (2 * R + 1)^2,) where R = int(detection_range).
         """
         R = int(self.detection_range)

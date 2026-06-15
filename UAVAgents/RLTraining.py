@@ -184,7 +184,7 @@ class RLTrainingPipeline:
                     elif agent.uav_type == UAVType.EXTINGUISH:
                         # Extinguished count
                         extinguished = max(0, before_cells - after_cells)
-                        reward += 25.0 * extinguished + 1.0 * after_cells
+                        reward += 25.0 * extinguished - 1.0 * after_cells # penalize it for leaving fire around
                     elif agent.uav_type == UAVType.RESCUE:
                         # Rescued count
                         rescued = max(0, after_humans_rescued - before_humans_rescued)
