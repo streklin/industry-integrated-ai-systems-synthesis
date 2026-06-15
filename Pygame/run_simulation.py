@@ -14,6 +14,7 @@ from HumanAgents.HumanAgent import HumanAgent, HumanAgentState
 from visualizer import WildfireVisualizer
 from UAVAgents.UAVBase import ReconUAV, FireControlUAV, RescueUAV, UAVState, UAVType
 from UAVAgents.UAVSimulatorModule import UAVSimulator
+from simulation_coordinator import SimulationCoordinator
 
 def main():
     # Simulation Parameters
@@ -63,7 +64,7 @@ def main():
         print(f"Forced start fire ignited at center ({center_x}, {center_y})")
 
     # Initialize UAV agents
-    recon_uav = ReconUAV(width=width, height=height)
+    recon_uav = ReconUAV(uav_id=0, width=width, height=height)
     recon_uav.x = 20.0
     recon_uav.y = 20.0
     recon_uav.state = UAVState.HANGER
@@ -71,19 +72,22 @@ def main():
     recon_uav.set_waypoint(50.0, 50.0) # Start patrol towards center
     recon_uav.velocity = 1.0
 
-    extinguish_uav = FireControlUAV(width=width, height=height)
+    extinguish_uav = FireControlUAV(uav_id=1, width=width, height=height)
     extinguish_uav.x = 20.0
     extinguish_uav.y = 20.0
     extinguish_uav.state = UAVState.HANGER
     extinguish_uav.detection_range = 3.0
     extinguish_uav.velocity = 0.5
 
-    rescue_uav = RescueUAV(width=width, height=height)
+    rescue_uav = RescueUAV(uav_id=2, width=width, height=height)
     rescue_uav.x = 20.0
     rescue_uav.y = 20.0
     rescue_uav.state = UAVState.HANGER
     rescue_uav.detection_range = 3.0
     rescue_uav.velocity = 0.5
+
+    # Initialize Coordinator
+    coordinator = SimulationCoordinator(n_steps=5)
 
     # Load SVM policies from models directory if available
     models_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "UAVAgents", "models"))
@@ -132,6 +136,9 @@ def main():
         
         # 3. Update UAV simulation and Dispatch Decision logic
         uav_simulator.update(delta_time=1.0, ca_grid=ca.grid, humans=human_agents)
+        
+        # Trigger Coordinator to communicate with CommandCenterAgent
+        coordinator.on_step(step, visualizer, uav_simulator.uavs, human_agents)
         
         recon_messages = recon_uav.latest_messages
         

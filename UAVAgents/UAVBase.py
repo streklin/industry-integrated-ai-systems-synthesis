@@ -35,7 +35,7 @@ class UAVType(Enum):
     RESCUE = 4
 
 class UAVBase:
-    def __init__(self, turn_rate:float = 0.16, max_velocity:float = 1.0, width:float = 100, height:float = 100):
+    def __init__(self, uav_id: int = 0, turn_rate:float = 0.16, max_velocity:float = 1.0, width:float = 100, height:float = 100):
         """
         The UAVBase class is the base class for all UAV agents.
         It is responsible for:
@@ -46,11 +46,15 @@ class UAVBase:
         2D Space.
 
         Args:
+            uav_id: Unique identifier for the UAV.
             width: The width of the work area.
             height: the height of the work area.
 
         If a drone leaves its work area (less than 0 or greater than width/height) it will be considered lost.
         """
+        self.uav_id = uav_id
+        self.recalled = False
+
         self.velocity = 0.0
         self.x = 0.0
         self.y = 0.0
@@ -251,6 +255,7 @@ class UAVBase:
             self.acceleration = 0.0
             self.x = self.home_base[0]
             self.y = self.home_base[1]
+            self.recalled = False
             messages = [self.x, self.y, self.fuel, "NO FIRE", "NO HUMAN"]
             self.latest_messages = messages
             return messages
@@ -317,7 +322,8 @@ class UAVBase:
         """
         Set the waypoint of the UAV.
         """
-        if self.state == UAVState.RETURNING:
+        is_home = (waypoint_x == self.home_base[0] and waypoint_y == self.home_base[1])
+        if (self.state == UAVState.RETURNING or self.recalled) and not is_home:
             return
 
         self.waypoint_x = waypoint_x
@@ -336,6 +342,7 @@ class UAVBase:
             if self.waypoint_x == self.home_base[0] and self.waypoint_y == self.home_base[1]:
                 self.fuel = 100.0
                 self.state = UAVState.HANGER
+                self.recalled = False
             return
 
         angle = math.atan2(dy, dx)
@@ -350,14 +357,28 @@ class UAVBase:
             
         self.bank_angle = (self.bank_angle + math.pi) % (2 * math.pi) - math.pi
 
+    def get_report(self) -> dict:
+        """
+        Get status report of the UAV.
+        """
+        return {
+            "id": self.uav_id,
+            "position": [self.x, self.y],
+            "sensor_status": {
+                "sees_fire": "FIRE" in self.latest_messages,
+                "sees_human": "HUMAN" in self.latest_messages,
+                "fuel": self.fuel
+            }
+        }
+
 
 class ReconUAV(UAVBase):
     """
     Represents small, cheap, fast UAV's that can be deployed to monitor the fire front.
     They report back to the control center with an update.
     """
-    def __init__(self, turn_rate:float = math.pi / 10, max_velocity:float = 2.0, width:float = 100, height:float = 100):
-        super().__init__(turn_rate, max_velocity, width, height)
+    def __init__(self, uav_id: int = 0, turn_rate:float = math.pi / 10, max_velocity:float = 2.0, width:float = 100, height:float = 100):
+        super().__init__(uav_id, turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.RECON
 
     def update(self, delta_time: float, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> list[str]:
@@ -369,8 +390,8 @@ class FireControlUAV(UAVBase):
     """
     Represents the large, expensive UAV's that are deployed to fight fires.
     """
-    def __init__(self, turn_rate:float = math.pi / 10, max_velocity:float = 1.0, width:float = 100, height:float = 100):
-        super().__init__(turn_rate, max_velocity, width, height)
+    def __init__(self, uav_id: int = 0, turn_rate:float = math.pi / 10, max_velocity:float = 1.0, width:float = 100, height:float = 100):
+        super().__init__(uav_id, turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.EXTINGUISH
         self.detection_range = 3.0
         self.velocity = 0.5
@@ -398,8 +419,8 @@ class RescueUAV(UAVBase):
     """
     Represents the large UAV's that are deployed to rescue humans.
     """
-    def __init__(self, turn_rate:float = math.pi / 10, max_velocity:float = 1.0, width:float = 100, height:float = 100):
-        super().__init__(turn_rate, max_velocity, width, height)
+    def __init__(self, uav_id: int = 0, turn_rate:float = math.pi / 10, max_velocity:float = 1.0, width:float = 100, height:float = 100):
+        super().__init__(uav_id, turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.RESCUE
         self.detection_range = 3.0
         self.velocity = 0.5

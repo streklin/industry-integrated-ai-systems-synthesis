@@ -145,6 +145,42 @@ class MGraphManager:
 
         return results
 
+    def query_by_predicate(self, predicate: str):
+        """
+        Queries the knowledge graph for all edges of a specific predicate.
+
+        Args:
+            predicate: The predicate to query for (e.g., character, location, object, event, theme, genre).
+        Returns:
+            A summary of all edges of the specified predicate in the knowledge graph.
+        """
+        print(f"Querying graph for edges with predicate: {predicate}")
+        results = []
+
+        with self.mgraph.data() as data:
+            for edge in data.edges():
+                if getattr(edge.edge.data.edge_data, 'predicate', None) == predicate:
+                    results.append((edge.from_node().node_data.name, edge.edge.data.edge_data.predicate, edge.to_node().node_data.name))
+
+        return results
+
+    def query_all(self):
+        """
+        Queries the knowledge graph for all entities and their relationships.
+
+        Returns:
+            A summary of all entities and their relationships in the knowledge graph.
+        """
+        results = []
+
+        with self.mgraph.data() as data:
+            for node in data.nodes():
+                results.append(getattr(node.node_data, 'name', None))
+            for edge in data.edges():
+                results.append((edge.from_node().node_data.name, edge.edge.data.edge_data.predicate, edge.to_node().node_data.name))
+
+        return results
+
     def query_by_entity_name(self, entity_name: str):
         """
         Queries the knowledge graph for a specific entity and its relationships.
