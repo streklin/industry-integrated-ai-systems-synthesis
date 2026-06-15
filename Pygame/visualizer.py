@@ -137,6 +137,8 @@ class WildfireVisualizer:
 
         # Draw human agents on top of the terrain grid
         for agent in self.human_agents:
+            if agent.activity_type == HumanAgentState.RESCUED:
+                continue
             cx = int((agent.x + 0.5) * self.cell_size)
             cy = int((agent.y + 0.5) * self.cell_size)
             

@@ -5,6 +5,7 @@ class HumanAgentState(Enum):
     CAMPING = 0
     HIKING = 1
     CASUALTY = 2
+    RESCUED = 3
 
 class HumanAgent:
     """
@@ -23,7 +24,7 @@ class HumanAgent:
         """
         Check if the agent can be updated.
         """
-        return self.activity_type != HumanAgentState.CASUALTY
+        return self.activity_type not in (HumanAgentState.CASUALTY, HumanAgentState.RESCUED)
 
     def _update_hiker(self):
         """

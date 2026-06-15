@@ -2,6 +2,7 @@ import os
 import sys
 import random
 import pygame
+import pickle
 
 # Ensure the parent directory is in sys.path so we can import WildFireCA and HumanAgents
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -11,7 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from WildFireCA.WildFireCA import WildfireCA, WildFireState
 from HumanAgents.HumanAgent import HumanAgent, HumanAgentState
 from visualizer import WildfireVisualizer
-from UAVAgents.UAVBase import ReconUAV, FireControlUAV, UAVState, UAVType
+from UAVAgents.UAVBase import ReconUAV, FireControlUAV, RescueUAV, UAVState, UAVType
 from UAVAgents.UAVSimulatorModule import UAVSimulator
 
 def main():
@@ -61,7 +62,7 @@ def main():
         ca.grid[center_x][center_y].ignite()
         print(f"Forced start fire ignited at center ({center_x}, {center_y})")
 
-    # Initialize UAV simulator and agents at home base (20, 20)
+    # Initialize UAV agents
     recon_uav = ReconUAV(width=width, height=height)
     recon_uav.x = 20.0
     recon_uav.y = 20.0
@@ -77,7 +78,31 @@ def main():
     extinguish_uav.detection_range = 3.0
     extinguish_uav.velocity = 0.5
 
-    uav_simulator = UAVSimulator([recon_uav, extinguish_uav])
+    rescue_uav = RescueUAV(width=width, height=height)
+    rescue_uav.x = 20.0
+    rescue_uav.y = 20.0
+    rescue_uav.state = UAVState.HANGER
+    rescue_uav.detection_range = 3.0
+    rescue_uav.velocity = 0.5
+
+    # Load SVM policies from models directory if available
+    models_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "UAVAgents", "models"))
+    for agent, filename in [
+        (recon_uav, "recon_policy.pkl"),
+        (extinguish_uav, "extinguish_policy.pkl"),
+        (rescue_uav, "rescue_policy.pkl")
+    ]:
+        filepath = os.path.join(models_dir, filename)
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, "rb") as f:
+                    model = pickle.load(f)
+                agent.set_svm_model(model)
+                print(f"Loaded SVM policy model for {agent.uav_type.name} from {filepath}")
+            except Exception as e:
+                print(f"Error loading SVM model for {agent.uav_type.name}: {e}")
+
+    uav_simulator = UAVSimulator([recon_uav, extinguish_uav, rescue_uav])
 
     # Initialize Pygame Visualizer (passing human agents and UAV lists)
     visualizer = WildfireVisualizer(ca, human_agents=human_agents, uavs=uav_simulator.uavs, cell_size=cell_size, window_title="Wildfire, Humans & UAV Simulation")
@@ -99,7 +124,6 @@ def main():
         
         # 2. Update human agents logic
         for agent in human_agents:
-            # Update position / transition (only moves if not a casualty)
             agent.update()
             
             # Check if current cell is burning
@@ -109,8 +133,9 @@ def main():
         # 3. Update UAV simulation and Dispatch Decision logic
         uav_simulator.update(delta_time=1.0, ca_grid=ca.grid, humans=human_agents)
         
-        # Dispatch logic: if Recon UAV detects a fire, and Extinguish UAV is waiting at base, deploy it!
         recon_messages = recon_uav.latest_messages
+        
+        # Dispatch logic: if Recon UAV detects a fire, deploy Extinguish UAV
         if "FIRE" in recon_messages:
             if extinguish_uav.state == UAVState.HANGER:
                 fire_x = recon_uav.x
@@ -118,6 +143,15 @@ def main():
                 extinguish_uav.set_waypoint(fire_x, fire_y)
                 extinguish_uav.set_acceleration(1.0) # Accelerate to target
                 print(f"[Dispatch] Recon UAV detected fire! Deploying Extinguish UAV to coordinates: ({fire_x:.1f}, {fire_y:.1f})")
+
+        # Dispatch logic: if Recon UAV detects a human, deploy Rescue UAV
+        if "HUMAN" in recon_messages:
+            if rescue_uav.state == UAVState.HANGER:
+                human_x = recon_uav.x
+                human_y = recon_uav.y
+                rescue_uav.set_waypoint(human_x, human_y)
+                rescue_uav.set_acceleration(1.0) # Accelerate to target
+                print(f"[Dispatch] Recon UAV detected human! Deploying Rescue UAV to coordinates: ({human_x:.1f}, {human_y:.1f})")
 
         # 4. Update CA simulation step (once every 10 steps)
         if step % 10 == 0:
@@ -129,15 +163,16 @@ def main():
         
         # Calculate human statistics
         casualties = sum(1 for a in human_agents if a.activity_type == HumanAgentState.CASUALTY)
-        alive = len(human_agents) - casualties
+        rescued = sum(1 for a in human_agents if a.activity_type == HumanAgentState.RESCUED)
+        alive = len(human_agents) - casualties - rescued
         
         # Show status in console
         if step % 10 == 0 or burning_cells == 0:
-            print(f"Step {step:02d} | Burning Cells: {burning_cells:4d} | Humans Alive: {alive:2d} | Casualties: {casualties:2d}")
+            print(f"Step {step:02d} | Burning Cells: {burning_cells:4d} | Humans Alive: {alive:2d} | Rescued: {rescued:2d} | Casualties: {casualties:2d}")
             
         # If fire has burned out, wait for exit
         if burning_cells == 0:
-            print(f"\nFire burned out at step {step}. Final Humans State - Alive: {alive}, Casualties: {casualties}.")
+            print(f"\nFire burned out at step {step}. Final Humans State - Alive: {alive}, Rescued: {rescued}, Casualties: {casualties}.")
             print("Press ESC or close the window to exit.")
             while True:
                 for event in pygame.event.get():
