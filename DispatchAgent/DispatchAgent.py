@@ -212,10 +212,21 @@ class DispatchAgent:
             "dropout_rate": 0.1,
             "layers_num": 4,
             "vocab_size": 113,  # Dense vocabulary size (0-112)
-            "context_size": 128,
+            "max_ep_length": 100,
+            "max_state_len": 20,
+            "max_action_len": 10,
         }
         self.model = DecisionTransformer(self.config)
-        self.max_response_length = 50
+
+        # History lists to keep track of trajectory for DecisionTransformer context
+        self.history_states = []       # list of list of dense token IDs (each of length L_s)
+        self.history_actions = []      # list of list of dense token IDs (each of length L_a)
+        self.history_returns = []      # list of list of float (each of length 1)
+        self.history_timesteps = []    # list of ints
+        
+        # Track current return-to-go
+        self.target_return = 1.0
+        self.current_return = self.target_return
 
         if model_file is not None:
             self.load_model(model_file)
@@ -226,61 +237,104 @@ class DispatchAgent:
         """
         self.message_buffer.append(message)
 
+    def _pad_or_truncate(self, tokens: list[int], max_len: int) -> list[int]:
+        if len(tokens) < max_len:
+            return tokens + [112] * (max_len - len(tokens))  # 112 is dense ID for UNK
+        else:
+            return tokens[:max_len]
+
     def update(self) -> list[str]:
         """
-        Appends all messages together to create a single "context", then 
-        generates the next radio signal to send out. Message is "transmitted"
-        when then "TRANSMIT" token is generated.
+        Appends all messages together to create a single "state", then 
+        generates the next action sequence (radio command) using the DecisionTransformer.
         """
-        # combine the lists into a single context window
+        # 1. Prepare current state s_t
         context = []
         for message in self.message_buffer:
             context.extend(message)
-            
-        # tokenize to dense IDs
-        context_tokens = list(self.tokenizer.tokenize(context))
-
-        if len(context_tokens) == 0:
-            # If context is empty, initialize with dense ID for UNK
-            context_tokens = [self.tokenizer.to_dense_id(self.tokenizer.token_map["UNK"])]
-
-        generated_tokens = []
+        # Clear buffer
+        self.message_buffer = []
         
-        # Dense ID equivalents of TRANSMIT (111) and END (100)
+        # Tokenize current state to dense IDs and pad/truncate
+        state_tokens = list(self.tokenizer.tokenize(context))
+        padded_state = self._pad_or_truncate(state_tokens, self.config["max_state_len"])
+        
+        # 2. Determine current timestep t
+        t = len(self.history_states)
+        
+        # 3. Append current state, return, and timestep to history
+        self.history_states.append(padded_state)
+        self.history_returns.append([self.current_return])
+        self.history_timesteps.append(t)
+        
+        # 4. Prepare placeholder action for the current step (padded with UNK/112)
+        current_action = [112] * self.config["max_action_len"]
+        
+        # We append current_action to history_actions and update it in-place during autoregressive generation.
+        self.history_actions.append(current_action)
+        
+        # 5. Slice last K steps from history (context window size)
+        K = 20
+        states_seq = self.history_states[-K:]
+        actions_seq = self.history_actions[-K:]
+        returns_seq = self.history_returns[-K:]
+        timesteps_seq = self.history_timesteps[-K:]
+        
+        # Convert to tensors with batch_size = 1
+        states_tensor = torch.tensor([states_seq], dtype=torch.long)
+        actions_tensor = torch.tensor([actions_seq], dtype=torch.long)
+        returns_tensor = torch.tensor([returns_seq], dtype=torch.float)
+        timesteps_tensor = torch.tensor([timesteps_seq], dtype=torch.long)
+        
+        # Get dense IDs for control tokens
         transmit_dense_id = self.tokenizer.to_dense_id(self.tokenizer.token_map["TRANSMIT"])
         end_dense_id = self.tokenizer.to_dense_id(self.tokenizer.token_map["END"])
         
-        current_tokens = list(context_tokens)
-        max_context_size = self.config["context_size"]
-        
         self.model.eval()
-        for _ in range(self.max_response_length):
-            # Truncate context to model's context_size
-            input_tokens = current_tokens[-max_context_size:]
-            
-            # Convert to PyTorch tensor (batch size 1)
-            input_tensor = torch.tensor([input_tokens], dtype=torch.long)
-            
-            # Predict logits
+        generated_action_tokens = []
+        
+        for j in range(self.config["max_action_len"]):
             with torch.no_grad():
-                logits = self.model(input_tensor)  # (1, seq_length, vocab_size)
+                # Forward pass: shape of action_preds is (1, seq_len, L_a, vocab_size)
+                action_preds, reward_preds = self.model(
+                    states_tensor, 
+                    actions_tensor, 
+                    returns_tensor, 
+                    timesteps_tensor
+                )
             
-            # Get logits for the last token in the sequence
-            next_token_logits = logits[0, -1, :]
+            # Extract logits for the j-th action token of the last timestep in sequence
+            logits = action_preds[0, -1, j, :]
             
-            # Argmax to get next token ID
-            next_token_id = torch.argmax(next_token_logits, dim=-1).item()
+            # Predict the next token ID
+            next_token_id = torch.argmax(logits, dim=-1).item()
             
-            # Append to sequence
-            current_tokens.append(next_token_id)
-            generated_tokens.append(next_token_id)
+            # Update the action tensors
+            current_action[j] = next_token_id
+            actions_tensor[0, -1, j] = next_token_id
             
-            # Stop if TRANSMIT or END is generated
+            generated_action_tokens.append(next_token_id)
+            
+            # Stop early if TRANSMIT or END is generated
             if next_token_id in (transmit_dense_id, end_dense_id):
                 break
-                
-        # Detokenize response
-        return self.tokenizer.detokenize(generated_tokens)
+        
+        # Update current action remaining spots with UNK (112) in history
+        for idx in range(len(generated_action_tokens), self.config["max_action_len"]):
+            current_action[idx] = 112
+            
+        # 6. Update return-to-go for the next step using reward function
+        step_reward = self.get_reward(padded_state, current_action)
+        self.current_return -= step_reward
+        
+        # 7. Detokenize response
+        return self.tokenizer.detokenize(generated_action_tokens)
+
+    def get_reward(self, state: list[int], action: list[int]) -> float:
+        """
+        Placeholder reward function. Can be overridden with actual reward logic.
+        """
+        return 0.0
 
     def load_model(self, model_file: str):
         """

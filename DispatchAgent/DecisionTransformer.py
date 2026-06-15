@@ -142,42 +142,94 @@ class DecisionTransformer(nn.Module):
         # size of the hidden layer
         self.hidden_size = config["embed_dim"]
         self.vocab_size = config["vocab_size"]
-        self.context_size = config.get("context_size", config.get("max_ep_length", 1024))
+        
+        # maximum number of timesteps in an episode
+        self.max_ep_length = config.get("max_ep_length", 1024)
+        
+        # dimensions for state and action spaces (sequence lengths)
+        self.L_s = config.get("max_state_len", 20)
+        self.L_a = config.get("max_action_len", 10)
 
-        # Discrete embedding and position embedding layers
+        # embedding layers for timesteps, returns, states, and actions (t,r,s,a)
+        self.embed_timestep = nn.Embedding(self.max_ep_length, self.hidden_size)
+        self.embed_return = nn.Linear(1, self.hidden_size)
+        
+        # We use a single shared token embedding layer for discrete tokens in states and actions
         self.embed_token = nn.Embedding(self.vocab_size, self.hidden_size)
-        self.embed_pos = nn.Embedding(self.context_size, self.hidden_size)
+        
+        # Segment embeddings to distinguish between Return (0), State (1), and Action (2)
+        self.embed_segment = nn.Embedding(3, self.hidden_size)
 
         # Normalization of the embedding layers
         self.embed_ln = nn.LayerNorm(self.hidden_size)
         
-        # Token prediction head
+        # prediction heads
         self.predict_token = nn.Linear(self.hidden_size, self.vocab_size)
+        self.predict_reward = nn.Linear(self.hidden_size, 1)
+
+        # Ensure the transformer's internal causal mask is large enough for flat sequence
+        step_len = 1 + self.L_s + self.L_a
+        transformer_config = config.copy()
+        transformer_config["context_size"] = transformer_config.get(
+            "context_size", self.max_ep_length * step_len
+        )
 
         # create an instance of the transformer model
         # this will be used to generate the next steps in the sequence.
-        self.transformer = TransformerModel(config)
+        self.transformer = TransformerModel(transformer_config)
 
-    def forward(self, token_ids):
+    def forward(self, states, actions, returns_to_go, timesteps):
         """
-        Generate predictions for the next token in the sequence.
+        Generate the next action token predictions and reward predictions.
+        Based on the DecisionTransformer algorithm with fine-grained token-level interleaving.
         """
-        batch_size, seq_length = token_ids.shape
+        batch_size, seq_len = states.shape[0], states.shape[1]
+        device = states.device
         
-        # Position indices: [0, 1, ..., seq_length - 1]
-        device = token_ids.device
-        positions = torch.arange(seq_length, dtype=torch.long, device=device).unsqueeze(0) # (1, seq_length)
+        # 1. Embed individual components
+        # Timesteps embedding: (B, seq_len, hidden_size)
+        pos_embedding = self.embed_timestep(timesteps)
         
-        # Embed tokens and positions
-        token_embeddings = self.embed_token(token_ids) # (B, C, embed_dim)
-        position_embeddings = self.embed_pos(positions) # (1, C, embed_dim)
+        # Returns embedding: (B, seq_len, 1, hidden_size)
+        returns_embeddings = self.embed_return(returns_to_go).unsqueeze(2)
+        segment_r = self.embed_segment(torch.tensor([0], device=device)).unsqueeze(0).unsqueeze(0)
+        returns_embeddings = returns_embeddings + segment_r + pos_embedding.unsqueeze(2)
         
-        input_embeddings = self.embed_ln(token_embeddings + position_embeddings)
+        # States embedding: (B, seq_len, L_s, hidden_size)
+        state_embeddings = self.embed_token(states)
+        segment_s = self.embed_segment(torch.tensor([1], device=device)).unsqueeze(0).unsqueeze(0)
+        state_embeddings = state_embeddings + segment_s + pos_embedding.unsqueeze(2)
+        
+        # Actions embedding: (B, seq_len, L_a, hidden_size)
+        action_embeddings = self.embed_token(actions)
+        segment_a = self.embed_segment(torch.tensor([2], device=device)).unsqueeze(0).unsqueeze(0)
+        action_embeddings = action_embeddings + segment_a + pos_embedding.unsqueeze(2)
+        
+        # 2. Interleave step blocks: R_t, s_t, a_t
+        # Concatenate along the token dimension: shape (B, seq_len, 1 + L_s + L_a, hidden_size)
+        step_len = 1 + self.L_s + self.L_a
+        stacked_inputs = torch.cat((returns_embeddings, state_embeddings, action_embeddings), dim=2)
+        
+        # Flatten time and token dimensions: shape (B, seq_len * step_len, hidden_size)
+        flat_inputs = stacked_inputs.view(batch_size, seq_len * step_len, self.hidden_size)
+        
+        input_embeddings = self.embed_ln(flat_inputs)
         
         # Pass to the transformer blocks
-        hidden_states = self.transformer(input_embeddings) # (B, C, embed_dim)
+        hidden_states = self.transformer(input_embeddings) # (B, seq_len * step_len, hidden_size)
         
-        # Predict logits over vocabulary for each position
-        logits = self.predict_token(hidden_states) # (B, C, vocab_size)
+        # 3. Slice hidden states to predict actions and rewards
+        # We predict action token a_{t, j} using the preceding hidden state at offset (L_s + j)
+        indices = torch.arange(seq_len, device=device).unsqueeze(1) * step_len + self.L_s + torch.arange(self.L_a, device=device).unsqueeze(0)
+        indices = indices.view(-1) # (seq_len * L_a)
+        action_hidden = hidden_states[:, indices, :] # (B, seq_len * L_a, hidden_size)
         
-        return logits
+        # We predict the reward from the last state token's hidden state at offset L_s
+        reward_indices = torch.arange(seq_len, device=device) * step_len + self.L_s
+        reward_hidden = hidden_states[:, reward_indices, :] # (B, seq_len, hidden_size)
+        
+        # Compute predictions
+        action_preds = self.predict_token(action_hidden).view(batch_size, seq_len, self.L_a, self.vocab_size)
+        reward_preds = self.predict_reward(reward_hidden) # (B, seq_len, 1)
+        
+        return action_preds, reward_preds

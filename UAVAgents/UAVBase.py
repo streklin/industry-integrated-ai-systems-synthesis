@@ -32,7 +32,7 @@ class UAVType(Enum):
     EXTINGUISH = 3
 
 class UAVBase:
-    def __init__(self, turn_rate:float = 0.16, max_velocity:float = 1.0, width:float = 100, height:float = 100):
+    def __init__(self, uav_id: int = 0, turn_rate:float = 0.16, max_velocity:float = 1.0, width:float = 100, height:float = 100):
         """
         The UAVBase class is the base class for all UAV agents.
         It is responsible for:
@@ -48,6 +48,7 @@ class UAVBase:
 
         If a drone leaves it works area (less than 0 or greater than width/height) it will be considered lost.
         """
+        self.uav_id = uav_id
         self.velocity = 0.0
         self.x = 0
         self.y = 0
@@ -75,7 +76,7 @@ class UAVBase:
 
         self.turn_rate = turn_rate
         self.uav_type:UAVType = UAVType.BASE
-        self.latest_messages = [self.x, self.y, self.fuel, "NO FIRE", "NO HUMAN"]
+        self.latest_messages = ["STATUS", str(self.uav_id), str(int(self.x)), str(int(self.y)), str(int(self.fuel)), "NOFIRE", "NOHUMAN"]
     
     def go_home(self):
         """
@@ -129,7 +130,7 @@ class UAVBase:
             self.acceleration = 0.0
             self.x = self.home_base[0]
             self.y = self.home_base[1]
-            messages = [self.x, self.y, self.fuel, "NO FIRE", "NO HUMAN"]
+            messages = ["STATUS", str(self.uav_id), str(int(self.x)), str(int(self.y)), str(int(self.fuel)), "NOFIRE", "NOHUMAN"]
             self.latest_messages = messages
             return messages
 
@@ -145,10 +146,13 @@ class UAVBase:
 
         self._update_travelling(delta_time=delta_time)
 
-        messages = []
-        messages.append(self.x)
-        messages.append(self.y)
-        messages.append(self.fuel)
+        messages = [
+            "STATUS",
+            str(self.uav_id),
+            str(int(self.x)),
+            str(int(self.y)),
+            str(int(self.fuel))
+        ]
 
         detected_cells = self._get_detected_cells(ca_grid)
         detected_humans = self._get_detected_humans(humans)
@@ -165,12 +169,12 @@ class UAVBase:
         if has_fire:
             messages.append("FIRE")
         else:
-            messages.append("NO FIRE")
+            messages.append("NOFIRE")
         
         if has_human:
             messages.append("HUMAN")
         else:
-            messages.append("NO HUMAN")
+            messages.append("NOHUMAN")
         
         self.latest_messages = messages
         return messages
@@ -241,8 +245,8 @@ class ReconUAV(UAVBase):
     - Sees Fire - this is true if there is fire in the ReconUAV's detection range.
     - Sees People - this is true if there is a human agent in the ReconUAV's detection range.
     """
-    def __init__(self, turn_rate:float = math.pi / 10, max_velocity:float = 2.0, width:float = 100, height:float = 100):
-        super().__init__(turn_rate, max_velocity, width, height)
+    def __init__(self, uav_id: int = 0, turn_rate:float = math.pi / 10, max_velocity:float = 2.0, width:float = 100, height:float = 100):
+        super().__init__(uav_id, turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.RECON
 
     def update(self, delta_time: float, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> list[str]:
@@ -266,7 +270,7 @@ class ReconUAV(UAVBase):
 
         # keep around where we are
         if "FIRE" in messages or "HUMAN" in messages:
-            self.set_waypoint(messages[0], messages[1])
+            self.set_waypoint(float(messages[2]), float(messages[3]))
         
         return messages
         
@@ -281,8 +285,8 @@ class FireControlUAV(UAVBase):
     If it sees fire, it will deploy its suppression system to supress the fire.
     Once deployed, the Agent will return to the runway.
     """
-    def __init__(self, turn_rate:float = math.pi / 10, max_velocity:float = 1.0, width:float = 100, height:float = 100):
-        super().__init__(turn_rate, max_velocity, width, height)
+    def __init__(self, uav_id: int = 0, turn_rate:float = math.pi / 10, max_velocity:float = 1.0, width:float = 100, height:float = 100):
+        super().__init__(uav_id, turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.EXTINGUISH
 
     def update(self, delta_time: float, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> list[str]:
@@ -299,7 +303,7 @@ class FireControlUAV(UAVBase):
             self.state = UAVState.TRAVELLING # should head back to the last set waypoint - NOT GO HOME
             return messages
 
-        print(f"UAV EXTINGUISHING FIRE at ({messages[0]}, {messages[1]})")
+        print(f"UAV EXTINGUISHING FIRE at ({float(messages[2]):.1f}, {float(messages[3]):.1f})")
 
         # extinguish all visible fire and return home
         detected_cells = self._get_detected_cells(ca_grid)

@@ -8,11 +8,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 # Ensure Pygame directory is also in sys.path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from WildFireCA.WildFireCA import WildfireCA, WildFireState
-from HumanAgents.HumanAgent import HumanAgent, HumanAgentState
+from WildFireCA.WildFireCA import WildFireState
+from HumanAgents.HumanAgent import HumanAgentState
 from visualizer import WildfireVisualizer
-from UAVAgents.UAVBase import ReconUAV, FireControlUAV, UAVState, UAVType
-from UAVAgents.UAVSimulatorModule import UAVSimulator
+from UAVAgents.UAVBase import UAVState
+from WildfireUAVEnv import WildfireUAVEnv
 
 def main():
     # Simulation Parameters
@@ -22,65 +22,26 @@ def main():
     cell_size = 10 # 10 pixels per cell gives a 1000x1000 window
     
     print(f"Initializing Wildfire CA simulation on {width}x{height} grid with seed={seed}...")
-    ca = WildfireCA(width=width, height=height, seed=seed)
-    ca.regenerate(seed=seed)
     
-    # 1. Spawn human agents on random dry land (not water, not burning)
-    human_agents = []
-    attempts = 0
-    while len(human_agents) < num_humans and attempts < 1000:
-        x = random.randint(0, width - 1)
-        y = random.randint(0, height - 1)
-        cell = ca.grid[x][y]
-        
-        if cell.state not in [WildFireState.WATER, WildFireState.BURNING, WildFireState.FIRE]:
-            # Alternate activity types
-            activity = random.choice([HumanAgentState.HIKING, HumanAgentState.CAMPING])
-            # Bounding limits should be width-1 and height-1 to match index ranges
-            agent = HumanAgent(x=x, y=y, max_x=width - 1, max_y=height - 1, activity_type=activity)
-            human_agents.append(agent)
-        attempts += 1
-
-    print(f"Successfully spawned {len(human_agents)} human agents in the wilderness.")
-    
-    # Ignite a starting fire in any burnable cell on the grid randomly
-    burnable_cells = []
-    for x in range(width):
-        for y in range(height):
-            cell = ca.grid[x][y]
-            if cell.state in [WildFireState.GRASSLAND, WildFireState.SHRUB, WildFireState.TREE, WildFireState.HOUSING]:
-                burnable_cells.append(cell)
-                
-    if burnable_cells:
-        selected_cell = random.choice(burnable_cells)
-        selected_cell.ignite()
-        print(f"Starting fire ignited randomly at ({selected_cell.x}, {selected_cell.y}) state={selected_cell.state.name}")
-    else:
-        center_x = width // 2
-        center_y = height // 2
-        ca.grid[center_x][center_y].ignite()
-        print(f"Forced start fire ignited at center ({center_x}, {center_y})")
-
-    # Initialize UAV simulator and agents at home base (20, 20)
-    recon_uav = ReconUAV(width=width, height=height)
-    recon_uav.x = 20.0
-    recon_uav.y = 20.0
-    recon_uav.state = UAVState.HANGER
-    recon_uav.detection_range = 5.0
-    recon_uav.set_waypoint(50.0, 50.0) # Start patrol towards center
-    recon_uav.velocity = 1.0
-
-    extinguish_uav = FireControlUAV(width=width, height=height)
-    extinguish_uav.x = 20.0
-    extinguish_uav.y = 20.0
-    extinguish_uav.state = UAVState.HANGER
-    extinguish_uav.detection_range = 3.0
-    extinguish_uav.velocity = 0.5
-
-    uav_simulator = UAVSimulator([recon_uav, extinguish_uav])
+    # Initialize unified simulation environment
+    env = WildfireUAVEnv(
+        num_recon_uavs=1,
+        num_extinguish_uavs=1,
+        width=width,
+        height=height,
+        num_humans=num_humans,
+        seed=seed
+    )
+    env.reset(seed=seed)
 
     # Initialize Pygame Visualizer (passing human agents and UAV lists)
-    visualizer = WildfireVisualizer(ca, human_agents=human_agents, uavs=uav_simulator.uavs, cell_size=cell_size, window_title="Wildfire, Humans & UAV Simulation")
+    visualizer = WildfireVisualizer(
+        env.ca,
+        human_agents=env.human_agents,
+        uavs=env.uav_simulator.uavs,
+        cell_size=cell_size,
+        window_title="Wildfire, Humans & UAV Simulation"
+    )
 
     # Initial draw before simulation updates
     visualizer.refresh()
@@ -91,45 +52,27 @@ def main():
     print("Starting simulation loop. Press ESC or close the window to quit.")
     
     while running:
-        # Check active fire count
-        burning_cells = sum(
-            1 for x in range(width) for y in range(height) 
-            if ca.grid[x][y].state == WildFireState.BURNING
-        )
+        # Determine hardcoded action to pass to env
+        action = []
+        recon_uav = env.uav_simulator.uavs[0]
+        extinguish_uav = env.uav_simulator.uavs[1]
         
-        # 2. Update human agents logic
-        for agent in human_agents:
-            # Update position / transition (only moves if not a casualty)
-            agent.update()
-            
-            # Check if current cell is burning
-            if ca.grid[agent.x][agent.y].state == WildFireState.BURNING:
-                agent.mark_casualty()
-        
-        # 3. Update UAV simulation and Dispatch Decision logic
-        uav_simulator.update(delta_time=1.0, ca_grid=ca.grid, humans=human_agents)
-        
-        # Dispatch logic: if Recon UAV detects a fire, and Extinguish UAV is waiting at base, deploy it!
-        recon_messages = recon_uav.latest_messages
-        if "FIRE" in recon_messages:
+        if "FIRE" in recon_uav.latest_messages:
             if extinguish_uav.state == UAVState.HANGER:
                 fire_x = recon_uav.x
                 fire_y = recon_uav.y
-                extinguish_uav.set_waypoint(fire_x, fire_y)
-                extinguish_uav.set_acceleration(1.0) # Accelerate to target
+                action = ["DEPLOY", "1", str(int(fire_x)), str(int(fire_y)), "TRANSMIT"]
                 print(f"[Dispatch] Recon UAV detected fire! Deploying Extinguish UAV to coordinates: ({fire_x:.1f}, {fire_y:.1f})")
-
-        # 4. Update CA simulation step (once every 10 steps)
-        if step % 10 == 0:
-            ca.update()
-        step += 1
+        
+        # Step the unified simulation environment
+        status_messages, reward, done, info = env.step(action)
+        step = info["step"]
+        burning_cells = info["burning_cells"]
+        alive = info["humans_alive"]
+        casualties = info["casualties"]
         
         # Refresh the pygame visualization
         visualizer.refresh()
-        
-        # Calculate human statistics
-        casualties = sum(1 for a in human_agents if a.activity_type == HumanAgentState.CASUALTY)
-        alive = len(human_agents) - casualties
         
         # Show status in console
         if step % 10 == 0 or burning_cells == 0:
