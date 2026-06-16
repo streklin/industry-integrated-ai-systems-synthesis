@@ -1,4 +1,3 @@
-
 from pydantic_ai import Agent, BinaryContent
 from pydantic_ai.providers.anthropic import AnthropicProvider
 from pydantic_ai.models.anthropic import AnthropicModel
@@ -34,6 +33,36 @@ class StateManagementAgent:
         """
         self.graphManager = graphManager
         system_prompt = """
+        You are an expert in reading satellite imagery and processing sensor data to identify relevant objects. 
+        You will maintain a Knowledge Graph of the simulation environment, current priorities, and user provided context.
+        Your Knowledge Grpah must include the following information:
+            - Current UAV positions and status
+            - Sector priority levels from the risk heatmap
+            - Human detection events and locations
+            - Fire spread history
+            - Resource allocation history
+            - Operator priority overrides
+
+        You will be given the following tools to interact with the Knowledge Graph.
+        You will be given a simulated satllite image of the current state.
+        You will be given a risk heatmap of the current state.
+        You will be given a set of UAV messages to process.
+
+        You will use the following oncology:
+        UAV has a position
+        UAV has a heading
+        UAV has a speed
+        UAV has a fuel level
+        
+        Humans have a position
+        Humans have a status ALIVE, DEAD, or RESCUED
+
+        Divide the map into 10x10 sectors.
+        Each sector has a priority level.
+
+        is_on_fire is a boolean
+        has_survivor is a boolean
+        location is the x,y coordinates of the object
         """
 
         self.agent = Agent(
@@ -61,7 +90,12 @@ class StateManagementAgent:
         """
         Run the state management agent to update the knowledge graph.
         """
-        pass
+        prompt = [
+            f"Here are the latest UAV messages: {uav_messages}",
+            satellite_image,
+            risk_image
+        ]
+        self.agent.run_sync(prompt)
 
 class StrategyAgent:
     """
@@ -121,7 +155,7 @@ class StrategyAgent:
         """
         Run the strategy agent to decide what actions to take.
         """
-        return self.agent.run_sync().output
+        return self.agent.run_sync("Review the Knowledge Graph and issue the latest command directives for the UAVs.").output
 
 class AssistantAgent:
     """
@@ -134,7 +168,33 @@ class AssistantAgent:
         self.graphManager = graphManager
 
         system_prompt = """
-        
+
+        You are an expert in natural language processing and understanding. 
+        You will be given a query from a human user and you must answer it using the knowledge graph.
+
+        The Knowledge Graph contains information about the simulation environment, current priorities, and user provided context.
+
+        You will be given a set of tools to interact with the Knowledge Graph.
+        You will be given a simulated satllite image of the current state.
+        You will be given a risk heatmap of the current state.
+        You will be given a set of UAV messages to process.
+
+        You will use the following oncology:
+        UAV has a position
+        UAV has a heading
+        UAV has a speed
+        UAV has a fuel level
+
+        Humans have a position
+        Humans have a status ALIVE, DEAD, or RESCUED
+
+        Divide the map into 10x10 sectors.
+        Each sector has a priority level.
+
+        is_on_fire is a boolean
+        has_survivor is a boolean
+        location is the x,y coordinates of the object
+
         """
 
         self.agent = Agent(
@@ -178,14 +238,15 @@ class CommandCenterAgent:
         """
         Update the knowledge graph with new information from UAVs and satellites.
         """
-        sat_bytes = BinaryContent(satellite_image)
-        risk_bytes = BinaryContent(risk_image)
+        sat_bytes = BinaryContent(data=satellite_image, media_type='image/png')
+        risk_bytes = BinaryContent(data=risk_image, media_type='image/png')
 
         # update the KG State with the state management agent
         self.state_management_agent.run_agent(uav_messages, sat_bytes, risk_bytes)
 
         # generate a new set of commands for the UAVs
-        return self.strategy_agent.run_agent()
+        response = self.strategy_agent.run_agent()
+        return [cmd.model_dump() for cmd in response.commands]
         
     def query(self, query):
         """

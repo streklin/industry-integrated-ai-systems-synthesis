@@ -21,7 +21,7 @@ class SimulationCoordinator:
     Coordinates simulation snapshots, model inference, telemetry gathering, 
     and command delegation with the CommandCenterAgent.
     """
-    def __init__(self, n_steps: int = 5):
+    def __init__(self, n_steps: int = 20):
         self.n_steps = n_steps
         
         # Determine device

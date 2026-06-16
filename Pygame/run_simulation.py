@@ -64,49 +64,53 @@ def main():
         print(f"Forced start fire ignited at center ({center_x}, {center_y})")
 
     # Initialize UAV agents
-    recon_uav = ReconUAV(uav_id=0, width=width, height=height)
-    recon_uav.x = 20.0
-    recon_uav.y = 20.0
-    recon_uav.state = UAVState.HANGER
-    recon_uav.detection_range = 5.0
-    recon_uav.set_waypoint(50.0, 50.0) # Start patrol towards center
-    recon_uav.velocity = 1.0
+    uavs = []
+    uav_id_counter = 0
 
-    extinguish_uav = FireControlUAV(uav_id=1, width=width, height=height)
-    extinguish_uav.x = 20.0
-    extinguish_uav.y = 20.0
-    extinguish_uav.state = UAVState.HANGER
-    extinguish_uav.detection_range = 3.0
-    extinguish_uav.velocity = 0.5
+    # 5 Recon UAVs
+    for i in range(5):
+        uav = ReconUAV(uav_id=uav_id_counter, width=width, height=height)
+        uav.detection_range = 5.0
+        uavs.append(uav)
+        uav_id_counter += 1
 
-    rescue_uav = RescueUAV(uav_id=2, width=width, height=height)
-    rescue_uav.x = 20.0
-    rescue_uav.y = 20.0
-    rescue_uav.state = UAVState.HANGER
-    rescue_uav.detection_range = 3.0
-    rescue_uav.velocity = 0.5
+    # 2 Extinguish UAVs
+    for i in range(2):
+        uav = FireControlUAV(uav_id=uav_id_counter, width=width, height=height)
+        uavs.append(uav)
+        uav_id_counter += 1
+
+    # 1 Rescue UAV
+    for i in range(1):
+        uav = RescueUAV(uav_id=uav_id_counter, width=width, height=height)
+        uavs.append(uav)
+        uav_id_counter += 1
 
     # Initialize Coordinator
-    coordinator = SimulationCoordinator(n_steps=5)
+    coordinator = SimulationCoordinator(n_steps=20)
 
     # Load SVM policies from models directory if available
     models_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "UAVAgents", "models"))
-    for agent, filename in [
-        (recon_uav, "recon_policy.pkl"),
-        (extinguish_uav, "extinguish_policy.pkl"),
-        (rescue_uav, "rescue_policy.pkl")
-    ]:
-        filepath = os.path.join(models_dir, filename)
-        if os.path.exists(filepath):
-            try:
-                with open(filepath, "rb") as f:
-                    model = pickle.load(f)
-                agent.set_svm_model(model)
-                print(f"Loaded SVM policy model for {agent.uav_type.name} from {filepath}")
-            except Exception as e:
-                print(f"Error loading SVM model for {agent.uav_type.name}: {e}")
+    policy_files = {
+        ReconUAV: "recon_policy.pkl",
+        FireControlUAV: "extinguish_policy.pkl",
+        RescueUAV: "rescue_policy.pkl"
+    }
 
-    uav_simulator = UAVSimulator([recon_uav, extinguish_uav, rescue_uav])
+    for uav in uavs:
+        filename = policy_files.get(type(uav))
+        if filename:
+            filepath = os.path.join(models_dir, filename)
+            if os.path.exists(filepath):
+                try:
+                    with open(filepath, "rb") as f:
+                        model = pickle.load(f)
+                    uav.set_svm_model(model)
+                    print(f"Loaded SVM policy model for {uav.uav_type.name} (ID: {uav.uav_id}) from {filepath}")
+                except Exception as e:
+                    print(f"Error loading SVM model for {uav.uav_type.name} (ID: {uav.uav_id}): {e}")
+
+    uav_simulator = UAVSimulator(uavs)
 
     # Initialize Pygame Visualizer (passing human agents and UAV lists)
     visualizer = WildfireVisualizer(ca, human_agents=human_agents, uavs=uav_simulator.uavs, cell_size=cell_size, window_title="Wildfire, Humans & UAV Simulation")
@@ -120,6 +124,26 @@ def main():
     print("Starting simulation loop. Press ESC or close the window to quit.")
     
     while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                break
+            elif event.type == pygame.KEYDOWN:
+                if event.key in [pygame.K_ESCAPE, pygame.K_q]:
+                    running = False
+                    break
+                elif event.key == pygame.K_SPACE:
+                    print("\n[Simulation Paused]")
+                    user_query = input("Enter your query for the Command Center Assistant: ")
+                    if user_query.strip():
+                        print("Querying Assistant Agent...")
+                        response = coordinator.command_center.query(user_query)
+                        print(f"\n[Assistant Response]:\n{response}\n")
+                    print("[Simulation Resumed]\n")
+
+        if not running:
+            break
+
         # Check active fire count
         burning_cells = sum(
             1 for x in range(width) for y in range(height) 
@@ -139,26 +163,6 @@ def main():
         
         # Trigger Coordinator to communicate with CommandCenterAgent
         coordinator.on_step(step, visualizer, uav_simulator.uavs, human_agents)
-        
-        recon_messages = recon_uav.latest_messages
-        
-        # Dispatch logic: if Recon UAV detects a fire, deploy Extinguish UAV
-        if "FIRE" in recon_messages:
-            if extinguish_uav.state == UAVState.HANGER:
-                fire_x = recon_uav.x
-                fire_y = recon_uav.y
-                extinguish_uav.set_waypoint(fire_x, fire_y)
-                extinguish_uav.set_acceleration(1.0) # Accelerate to target
-                print(f"[Dispatch] Recon UAV detected fire! Deploying Extinguish UAV to coordinates: ({fire_x:.1f}, {fire_y:.1f})")
-
-        # Dispatch logic: if Recon UAV detects a human, deploy Rescue UAV
-        if "HUMAN" in recon_messages:
-            if rescue_uav.state == UAVState.HANGER:
-                human_x = recon_uav.x
-                human_y = recon_uav.y
-                rescue_uav.set_waypoint(human_x, human_y)
-                rescue_uav.set_acceleration(1.0) # Accelerate to target
-                print(f"[Dispatch] Recon UAV detected human! Deploying Rescue UAV to coordinates: ({human_x:.1f}, {human_y:.1f})")
 
         # 4. Update CA simulation step (once every 10 steps)
         if step % 10 == 0:

@@ -1,14 +1,12 @@
 import os
 import sys
 import random
-import pygame
+from PIL import Image
 
-# Ensure the parent directory and Pygame directory are in sys.path so we can import WildFireCA and visualizer
+# Ensure the parent directory is in sys.path so we can import WildFireCA
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Pygame")))
 
 from WildFireCA.WildFireCA import WildfireCA, WildFireState
-from visualizer import WildfireVisualizer
 
 
 class DatasetGenerator:
@@ -53,6 +51,32 @@ class DatasetGenerator:
         # Fallback: center cell
         return width // 2, height // 2
 
+    def _render_grid_to_image(self, ca: WildfireCA):
+        """
+        Renders the cellular automata grid to a PIL Image directly based on state colors.
+        """
+        colors = {
+            WildFireState.EMPTY: (0, 0, 0),             # Black
+            WildFireState.GRASSLAND: (124, 252, 0),     # Lawn Green
+            WildFireState.SHRUB: (34, 139, 34),         # Forest Green
+            WildFireState.TREE: (0, 100, 0),            # Dark Green
+            WildFireState.FIRE: (255, 69, 0),           # Orange-Red
+            WildFireState.BURNING: (255, 0, 0),         # Red
+            WildFireState.HOUSING: (255, 140, 0),       # Dark Orange
+            WildFireState.URBAN: (255, 255, 255),       # White
+            WildFireState.ASH: (128, 128, 128),         # Grey
+            WildFireState.WATER: (0, 0, 255)            # Blue
+        }
+        
+        img = Image.new("RGB", (self.width, self.height))
+        pixels = img.load()
+        for x in range(self.width):
+            for y in range(self.height):
+                pixels[x, y] = colors.get(ca.grid[x][y].state, (0, 0, 0))
+                
+        # Scale up to requested cell_size
+        return img.resize((self.width * self.cell_size, self.height * self.cell_size), Image.NEAREST)
+
     def generate(self):
         """
         Generates the dataset. Runs K simulations, capturing screenshots for the base
@@ -60,10 +84,6 @@ class DatasetGenerator:
         """
         os.makedirs(self.data_dir, exist_ok=True)
         print(f"Starting dataset generation. Generating {self.k} simulation pairs (M={self.m}, N={self.n} steps)...")
-        
-        # Initialize a single visualizer instance and reuse it across runs to prevent window flickering
-        dummy_ca = WildfireCA(width=self.width, height=self.height)
-        visualizer = WildfireVisualizer(ca=dummy_ca, cell_size=self.cell_size, window_title="Dataset Generator")
 
         generated_count = 0
         while generated_count < self.k:
@@ -77,15 +97,10 @@ class DatasetGenerator:
             start_x, start_y = self._find_flammable_starting_cell(ca)
             ca.grid[start_x][start_y].ignite()
             
-            # 3. Associate visualizer with the current CA grid
-            visualizer.ca = ca
-            visualizer.human_agents = []
-            
             # 4. Simulate for a random number of steps in [0, M] before capturing the base state
             m_steps = random.randint(0, self.m)
             for step in range(m_steps):
                 ca.update()
-                pygame.event.pump()
             
             # Check if there are active burning cells at the base state
             burning_cells = sum(
@@ -99,23 +114,23 @@ class DatasetGenerator:
             print(f"Running simulation {generated_count+1}/{self.k} (Seed: {seed}, M_start: {m_steps})...")
 
             # 5. Capture base state (Step m_steps)
-            visualizer.refresh()
+            base_img = self._render_grid_to_image(ca)
             base_filename = os.path.join(self.data_dir, f"base/sim_{generated_count:04d}_base.png")
-            visualizer.save_screenshot(base_filename)
+            os.makedirs(os.path.dirname(base_filename), exist_ok=True)
+            base_img.save(base_filename)
             
-            # 6. Simulate for another N steps as fast as the CPU allows
+            # 6. Simulate for another N steps
             for step in range(self.n):
                 ca.update()
-                pygame.event.pump()
                 
             # 7. Capture ground truth state (Step m_steps + N)
-            visualizer.refresh()
+            gt_img = self._render_grid_to_image(ca)
             gt_filename = os.path.join(self.data_dir, f"gt/sim_{generated_count:04d}_gt.png")
-            visualizer.save_screenshot(gt_filename)
+            os.makedirs(os.path.dirname(gt_filename), exist_ok=True)
+            gt_img.save(gt_filename)
             
             generated_count += 1
             
-        pygame.quit()
         print(f"\nDataset generation complete. Saved {self.k} pairs to '{self.data_dir}'.")
 
 
