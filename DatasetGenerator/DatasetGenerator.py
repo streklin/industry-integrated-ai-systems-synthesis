@@ -138,14 +138,14 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Wildfire CA Dataset Generator Utility")
-    parser.add_argument("-k", "--k", type=int, default=1, help="Number of simulations to run (default: 1)")
+    parser.add_argument("-k", "--k", type=int, default=10000, help="Number of simulations to run (default: 1)")
     parser.add_argument("-n", "--n", type=int, default=20, help="Number of steps to simulate (default: 20)")
     parser.add_argument("-m", "--m", type=int, default=20, help="Upper bound for random steps before base state (default: 20)")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility (default: None)")
     parser.add_argument("--data_dir", type=str, default="data", help="Directory to save screenshots (default: 'data')")
     parser.add_argument("--width", type=int, default=100, help="Grid width (default: 100)")
     parser.add_argument("--height", type=int, default=100, help="Grid height (default: 100)")
-    parser.add_argument("--cell_size", type=int, default=8, help="Pixel size per CA cell (default: 8)")
+    parser.add_argument("--cell_size", type=int, default=10, help="Pixel size per CA cell (default: 10)")
 
     args = parser.parse_args()
 
