@@ -300,7 +300,7 @@ class UAVBase:
             self.x = self.home_base[0]
             self.y = self.home_base[1]
             self.recalled = False
-            messages = [self.x, self.y, self.fuel, self.state, None, None, False, False]
+            messages = [self.x, self.y, self.fuel, self.uav_type, None, None, False, False]
             self.latest_messages = [messages]
             return messages
 

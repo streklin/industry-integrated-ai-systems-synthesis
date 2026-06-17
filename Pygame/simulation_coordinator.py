@@ -168,6 +168,6 @@ class SimulationCoordinator:
                         uav.recalled = False
                         uav.set_waypoint(target_x, target_y)
                         uav.set_acceleration(1.0)
-                        print(f"[Coordinator] UAV {uav_id} DEPLOYED/REDIRECTED to ({target_x:.1f}, {target_y:.1f}). Reason: {cmd.get('reason')}")
+                        print(f"[Coordinator] UAV {uav_id} {uav.uav_type} DEPLOYED/REDIRECTED to ({target_x:.1f}, {target_y:.1f}). Reason: {cmd.get('reason')}")
                     else:
                         print(f"[Coordinator] Warning: DEPLOY command for UAV {uav_id} missing coordinates. Reason: {cmd.get('reason')}")

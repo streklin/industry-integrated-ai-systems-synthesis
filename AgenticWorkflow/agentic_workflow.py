@@ -41,33 +41,26 @@ class StrategyAgent:
         system_prompt = """
         You are an expert in developing a high-level strategy for monitoring and responding to a wildfire event.
 
-        You will be given tools for maintaining a Knowledge Graph.
-        You will be given a Satellite Image of the area, as well as a risk image.
-        Red means danger, Green means safe.
-        You will be given a history of your previous plans.
+        ## ENVIRONMENT
+        You will be working in a simulated environment of a wildfire.
+        The wildfire will start in ONE location and spread from there.
+        There will be no "secondary" fire events in this simulation.
+        There are eight UAVs under your command:
+        - 5 are RECON UAVS: These are used for finding humans and monitoring the fire front.
+        - 2 are EXTINGUISH UAVS: These are used to extinguish fires.
+        - 1 is a RESCUE UAV: These are used to rescue humans.
 
-        The top left corner of all images is the ORIGIN (0,0).
+        UAVs live on a 1000x1000 pixel grid that overlayed over a 100x100 grid map of the environment.
+        Each grid cell is 10x10 pixels.
 
-        You have three primary goals, in order of priority:
-        
-        1. GOAL_HUMAN_LIFE: Preserve Human Life that could be impacted by fire
-        2. GOAL_PROPERTY: Preserve Urban and Housing areas.
-        3. GOAL_EXTINGUISH: Extinguish Fires as fast as possible.
+        ## INPUTS
+        The satellite image is a 500x500 grid of pixels. This is a top down view of the environment.
+        The risk map image is a 500x500 grid of pixels. 
+        Red Pixels represent parts of the map endanger of burning or already burning.
+        Green Pixels are not currently in danger.
 
 
-        You will track the status of these goals using a Knowledge Graph.
-        Each goal is a top level entity of its own.
-        The status of each goal is a predicate that will be updated as the simulation progresses.
-        You will track a collection of locations of interest as child nodes for each goal.
-        
-        When given new information, you will update the status of the goals.
-
-        You must consider:
-        1. The current status of the goals.
-        2. The new information from UAVs and satellites.
-        3. The risk map.
-
-        The satellite image is color coded as follows:
+        Each pixel in the satellite image can have one of the following values:
 
         WildFireState.EMPTY: (0, 0, 0),             # Black
         WildFireState.GRASSLAND: (124, 252, 0),     # Lawn Green (Light)
@@ -80,14 +73,37 @@ class StrategyAgent:
         WildFireState.ASH: (128, 128, 128),         # Grey
         WildFireState.WATER: (0, 0, 255)            # Blue
 
-        Your task is to generate a priority list of locations of interest to focus on.
-        Your output should be of the following form:
+        You will be given the states of UAV.
+        You will be given the a Knowledge Graph to store Goals, Sub Goals, and Priorities.
 
-        - GOAL_HUMAN_LIFE; LOCATION 55,55; PRIORITY 1
-        - GOAL_HUMAN_LIFE; LOCATION 80,80; PRIORITY 2
-        - GOAL_EXTINGUISH; LOCATION 30, 35; PRIORITY 3
+        ## Knowledge Graph
+        You will be given a knowledge graph.
+        This graph stores the goals, subgoals, and priorities of the system.
+        You will be given tools to read and write information to the knowledge the graph.
 
-        Areas that are not at risk of fire, or currently burning should not be included in the priority list.
+        ## REASONING STRATEGY
+        You will use the Knowledge Graph to track the goals and determine the next priorities.
+        Your reasoning process will be:
+        1. Check the Knowledge Graph for Goals and SubGoals
+        2. Check UAV states and Locations for new Goals or SubGoals
+        3. Update Knowledge Graph with new Goals and SubGoals
+        4. Determine next Priority
+        5. Update Knowledge Graph with Priority
+        6. Return Priority
+
+        ## PRIORITIES
+        1. RESCUE AS MANY HUMANS AS POSSIBLE.
+        2. KEEP URBAN AND HOUSING CELLS SAFE FROM FIRE.
+        3. EXTINGUISH THE FIRE AS FAST AS POSSIBLE.
+
+        ## OUTPUTS
+        You will provide a JSON response with the following format:
+        GOAL POSITION (X,Y) PRIORITY REASON
+
+        Example:
+        GOAL POSITION (50,50) PRIORITY 1 REASON: The fire is spreading to the urban area
+
+
         """
 
         self.agent = Agent(
@@ -190,7 +206,17 @@ class DispatchAgent:
 
         RESCUE UAVs should ONLY be used to RECUSE Humans. You should always redirect them to the humans in most danger.
 
-
+        ## UAV INVENTORY
+        You have the following UAVs
+        UAV 0: RECON
+        UAV 1: RECON
+        UAV 2: RECON
+        UAV 3: RECON
+        UAV 4: RECON
+        UAV 5: EXTINGUISH
+        UAV 6: EXTINGUISH
+        UAV 7: RESCUE
+       
         ## UAV STATES
         UAVs in CRUISING State are working autonomously. They will continue to perform their tasks until they are given new commands.
         UAVs in TRAVELLING State are travelling to a waypoint.
@@ -230,12 +256,21 @@ class DispatchAgent:
         The current high-level plan generated by the strategy agent.
 
         ## Task
+        You are an expert in dispatching UAVs to respond to a wildfire event.
         Your task is to:
-        1. Issue a new command to *EVERY* UAV, even if they are already at their target location or Travelling.
-        2. You must use the plan to determine how to prioritize the UAVs.
-        3. You MUST use RESCUE UAVs to save endangered humans AND NOTHING ELSE.
-        4. You MUST use EXTINGUISH UAVs to extinguish fires AND NOTHING ELSE.
-        5. You MUST use RECON UAVs to obtain information AND NOTHING ELSE.
+        1. Analyze the current situation based on the provided images and telemetry data.
+        2. Follow the current plan generated by the strategy agent.
+        3. Issue new commands to *EVERY* UAV, even if they are already at their target location or Travelling.
+        4. You must use the plan to determine how to prioritize the UAVs.
+        5. You MUST use RESCUE UAVs to save endangered humans AND NOTHING ELSE.
+        6. You MUST use EXTINGUISH UAVs to extinguish fires AND NOTHING ELSE. THEY MAY NOT BE USED "JUST IN CASE", THEY MUST BE DEPLOYED TO FIGHT ACTIVE FIRE!!!!!!
+        7. You MUST use RECON UAVs to obtain information AND NOTHING ELSE.
+        8. EXTINGUISH UAVS may only be deployed to with 20 pixels of FIRE or BURNING.
+
+        ## PRIORITIES
+        1. RESCUE AS MANY HUMANS AS POSSIBLE.
+        2. KEEP URBAN AND HOUSING CELLS SAFE FROM FIRE.
+        3. EXTINGUISH THE FIRE AS FAST AS POSSIBLE.
         """
 
         self.graphManager = graphManager
