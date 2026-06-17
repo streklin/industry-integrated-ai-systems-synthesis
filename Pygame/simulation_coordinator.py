@@ -16,6 +16,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from FirePrediction.UNet import UNet
 from AgenticWorkflow.agentic_workflow import CommandCenterAgent
 
+# ------------------------------------------------------------------
+# Coordinate-space constants
+# Agents see 500×500 PNG images; the simulation grid is GRID_SIZE×GRID_SIZE.
+# When the LLM returns target coordinates they should be in grid-space
+# [0, GRID_SIZE-1], but if the model accidentally returns image-pixel
+# coordinates (0–4999) we normalise them transparently.
+# ------------------------------------------------------------------
+IMAGE_SIZE = 500   # pixels sent to CommandCenterAgent
+GRID_SIZE  = 100   # simulation grid cells (assumed square)
+
 class SimulationCoordinator:
     """
     Coordinates simulation snapshots, model inference, telemetry gathering, 
@@ -145,9 +155,21 @@ class SimulationCoordinator:
                     target_x = cmd.get("target_x")
                     target_y = cmd.get("target_y")
                     if target_x is not None and target_y is not None:
-                        uav.recalled = False # Clear recalled flag if explicitly deployed
-                        uav.set_waypoint(float(target_x), float(target_y))
+                        # Normalise coordinates: the LLM should return grid-space [0, GRID_SIZE-1].
+                        # If it accidentally returns image-pixel coords (values > GRID_SIZE),
+                        # scale them back to grid space.
+                        target_x = float(target_x)
+                        target_y = float(target_y)
+                        if target_x >= GRID_SIZE or target_y >= GRID_SIZE:
+                            target_x = (target_x / IMAGE_SIZE) * GRID_SIZE
+                            target_y = (target_y / IMAGE_SIZE) * GRID_SIZE
+                            print(f"[Coordinator] Rescaled image-space coords to grid-space: ({target_x:.1f}, {target_y:.1f})")
+                        # Clamp to valid grid bounds
+                        target_x = max(0.0, min(float(GRID_SIZE - 1), target_x))
+                        target_y = max(0.0, min(float(GRID_SIZE - 1), target_y))
+                        uav.recalled = False
+                        uav.set_waypoint(target_x, target_y)
                         uav.set_acceleration(1.0)
-                        print(f"[Coordinator] UAV {uav_id} DEPLOYED/REDIRECTED to ({target_x}, {target_y}).")
+                        print(f"[Coordinator] UAV {uav_id} DEPLOYED/REDIRECTED to ({target_x:.1f}, {target_y:.1f}).")
                     else:
                         print(f"[Coordinator] Warning: DEPLOY command for UAV {uav_id} missing coordinates.")

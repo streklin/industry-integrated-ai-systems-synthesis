@@ -87,7 +87,7 @@ def main():
         uav_id_counter += 1
 
     # Initialize Coordinator
-    coordinator = SimulationCoordinator(n_steps=20)
+    coordinator = SimulationCoordinator(n_steps=40)
 
     # Load SVM policies from models directory if available
     models_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "UAVAgents", "models"))

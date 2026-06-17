@@ -73,7 +73,7 @@ class UAVBase:
 
         self.home_base = (20.0, 20.0)
 
-        self.fuel = 100.0
+        self.fuel = 500.0
 
         # determine how large a region the UAV can detect fires and people in.
         # for extinguish operations, any fires in this nbd are extinguished.
@@ -340,7 +340,7 @@ class UAVBase:
         if dist < self.velocity * delta_time:
             self.state = UAVState.CRUISING
             if self.waypoint_x == self.home_base[0] and self.waypoint_y == self.home_base[1]:
-                self.fuel = 100.0
+                self.fuel = 500.0
                 self.state = UAVState.HANGER
                 self.recalled = False
             return
@@ -398,8 +398,6 @@ class FireControlUAV(UAVBase):
 
     def update(self, delta_time: float, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> list[str]:
         messages = super().update(delta_time, ca_grid, humans)
-        if self.state == UAVState.TRAVELLING or self.state == UAVState.RETURNING or self.state == UAVState.HANGER:
-            return messages
 
         # Extinguish all visible fire in range
         detected_cells = self._get_detected_cells(ca_grid)
@@ -422,19 +420,16 @@ class RescueUAV(UAVBase):
     def __init__(self, uav_id: int = 0, turn_rate:float = math.pi / 10, max_velocity:float = 1.0, width:float = 100, height:float = 100):
         super().__init__(uav_id, turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.RESCUE
-        self.detection_range = 3.0
+        self.detection_range = 3
         self.velocity = 0.5
 
     def update(self, delta_time: float, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> list[str]:
         messages = super().update(delta_time, ca_grid, humans)
-        if self.state == UAVState.TRAVELLING or self.state == UAVState.RETURNING or self.state == UAVState.HANGER:
-            return messages
 
         # Automatically rescue any human in the same cell
-        cx, cy = int(self.x), int(self.y)
         for human in humans:
             if human.activity_type not in (HumanAgentState.CASUALTY, HumanAgentState.RESCUED):
-                if human.x == cx and human.y == cy:
+                if math.hypot(human.x - self.x, human.y - self.y) <= self.detection_range:
                     human.activity_type = HumanAgentState.RESCUED
                     print(f"[RescueUAV] Rescued human at ({human.x}, {human.y})")
                     

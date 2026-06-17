@@ -14,7 +14,7 @@ class WildfireVisualizer:
     """
     Handles visualizing the current state of a WildfireCA simulation grid and Human Agents using Pygame.
     """
-    def __init__(self, ca: WildfireCA, human_agents=None, uavs=None, cell_size: int = 10, window_title: str = "Wildfire CA Simulation"):
+    def __init__(self, ca: WildfireCA, human_agents=None, uavs=None, cell_size: int = 10, window_title: str = "Wildfire CA Simulation", sim_width: int = 100, sim_height: int = 100, image_size: int = 500):
         """
         Initialize the visualizer.
         
@@ -29,6 +29,9 @@ class WildfireVisualizer:
         self.human_agents = human_agents if human_agents is not None else []
         self.uavs = uavs if uavs is not None else []
         self.cell_size = cell_size
+        # Coordinate scaling: agents reason in image-pixel space (image_size × image_size).
+        # This scale converts an image-space coordinate back to a pixel position on screen.
+        self.img_to_screen = (sim_width * cell_size) / image_size
         self.width = ca.width * cell_size
         self.height = ca.height * cell_size
         
@@ -54,6 +57,27 @@ class WildfireVisualizer:
         pygame.display.set_caption(window_title)
         self.clock = pygame.time.Clock()
         self.fps = 10  # Default simulation speed (steps per second)
+
+    def _draw_waypoint_diamond(self, gx: float, gy: float):
+        """
+        Draws a green diamond (rotated square) at the given grid-space coordinates
+        to mark a CommandCenter-issued waypoint.
+
+        Args:
+            gx: Grid-space X coordinate (0..sim_width-1).
+            gy: Grid-space Y coordinate (0..sim_height-1).
+        """
+        cx = int(gx * self.cell_size)
+        cy = int(gy * self.cell_size)
+        half = max(5, self.cell_size)
+        points = [
+            (cx,          cy - half),   # top
+            (cx + half,   cy),          # right
+            (cx,          cy + half),   # bottom
+            (cx - half,   cy),          # left
+        ]
+        pygame.draw.polygon(self.screen, (0, 220, 0), points, 2)   # green outline
+        pygame.draw.polygon(self.screen, (0, 255, 0, 80), points, 1) # subtle inner fill line
 
     def _draw_happy_face(self, cx: int, cy: int, size: int):
         """
@@ -179,11 +203,12 @@ class WildfireVisualizer:
             detection_radius = int(uav.detection_range * self.cell_size)
             pygame.draw.circle(self.screen, (100, 149, 237), (cx, cy), detection_radius, 1) # Cornflower Blue
 
-            # Draw waypoint path
+            # Draw waypoint path + green diamond target marker
             if uav.waypoint_x != uav.x or uav.waypoint_y != uav.y:
                 target_x = int(uav.waypoint_x * self.cell_size)
                 target_y = int(uav.waypoint_y * self.cell_size)
                 pygame.draw.line(self.screen, (180, 180, 180), (cx, cy), (target_x, target_y), 1)
+                self._draw_waypoint_diamond(uav.waypoint_x, uav.waypoint_y)
 
             # Draw the drone body and border
             pygame.draw.circle(self.screen, color, (cx, cy), 6)
