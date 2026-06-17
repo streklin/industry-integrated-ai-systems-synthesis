@@ -40,8 +40,6 @@ class SimulationCoordinator:
         # Load UNet Risk Predictor Model
         self.unet = UNet(in_channels=3, num_classes=1).to(self.device)
         model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "FirePrediction", "models", "fire_predictor_lrg.pth"))
-        if not os.path.exists(model_path):
-            model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "FirePrediction", "models", "fire_predictor.pth"))
             
         if os.path.exists(model_path):
             try:
@@ -109,7 +107,7 @@ class SimulationCoordinator:
 
         # 3. Gather UAV Reports
         reports = [uav.get_report() for uav in uavs]
-        print(f"[Coordinator] Telemetry reports collected: {reports}")
+        print(f"[Coordinator] Telemetry reports collected...")
 
         # 4. Invoke CommandCenter Agentic Update
         print("[Coordinator] Querying CommandCenterAgent...")
@@ -170,6 +168,6 @@ class SimulationCoordinator:
                         uav.recalled = False
                         uav.set_waypoint(target_x, target_y)
                         uav.set_acceleration(1.0)
-                        print(f"[Coordinator] UAV {uav_id} DEPLOYED/REDIRECTED to ({target_x:.1f}, {target_y:.1f}).")
+                        print(f"[Coordinator] UAV {uav_id} DEPLOYED/REDIRECTED to ({target_x:.1f}, {target_y:.1f}). Reason: {cmd.get('reason')}")
                     else:
-                        print(f"[Coordinator] Warning: DEPLOY command for UAV {uav_id} missing coordinates.")
+                        print(f"[Coordinator] Warning: DEPLOY command for UAV {uav_id} missing coordinates. Reason: {cmd.get('reason')}")

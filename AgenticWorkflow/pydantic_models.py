@@ -13,6 +13,9 @@ class UAVCommand(BaseModel):
     command: CommandAction = Field(
         description="The command action: DEPLOY to set/redirect to a new waypoint, or RECALL to return back to base."
     )
+    reason: str = Field(
+        description="The reason for the command. Be specific"
+    )
     target_x: Optional[float] = Field(
         default=None, 
         description=(
@@ -29,6 +32,7 @@ class UAVCommand(BaseModel):
             "Convert: grid_y = (pixel_y / 500) * 100. Required if command is DEPLOY."
         )
     )
+
 
 class CommandCenterResponse(BaseModel):
     commands: List[UAVCommand] = Field(

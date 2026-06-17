@@ -177,7 +177,10 @@ class RLTrainingPipeline:
                     
                     # Compute Reward
                     reward = -0.05 # step penalty
-                    
+
+                    # distance to waypoint
+                    reward -= 0.1 * math.sqrt((agent.x - agent.waypoint_x)**2 + (agent.y - agent.waypoint_y)**2)
+
                     if agent.uav_type == UAVType.RECON:
                         # Reward keeping fire and humans in detection range
                         reward += 1.0 * after_cells + 2.0 * len(agent._get_detected_humans(humans))

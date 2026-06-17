@@ -81,7 +81,7 @@ class UAVBase:
 
         self.turn_rate = turn_rate
         self.uav_type:UAVType = UAVType.BASE
-        self.latest_messages = [self.x, self.y, self.fuel, "NO FIRE", "NO HUMAN"]
+        self.latest_messages = [self.x, self.y, self.fuel, self.state, None, None, False, False]
         
         # RL / SVM specific attributes
         self.svm_model = None
@@ -161,13 +161,52 @@ class UAVBase:
                         
         return np.concatenate([fire_channel.flatten(), human_channel.flatten()])
 
+    def _get_boundary_override_action(self) -> int | None:
+        """
+        Safety layer applied before any policy action is returned.
+        If the UAV is within WALL_MARGIN cells of any boundary, compute the
+        steering action that turns it back toward the interior of the grid.
+        Returns the corrective action (0/1/2) if triggered, or None if the
+        UAV is safely away from all walls.
+        """
+        WALL_MARGIN = 5  # cells
+        near_left   = self.x < WALL_MARGIN
+        near_right  = self.x > self.width  - 1 - WALL_MARGIN
+        near_top    = self.y < WALL_MARGIN
+        near_bottom = self.y > self.height - 1 - WALL_MARGIN
+
+        if not (near_left or near_right or near_top or near_bottom):
+            return None  # well inside the grid — no correction needed
+
+        # Steer toward a safe inset point well away from the nearest wall
+        safe_x = max(WALL_MARGIN * 2, min(self.width  - 1 - WALL_MARGIN * 2, self.width  / 2.0))
+        safe_y = max(WALL_MARGIN * 2, min(self.height - 1 - WALL_MARGIN * 2, self.height / 2.0))
+
+        dx = safe_x - self.x
+        dy = safe_y - self.y
+        target_angle = math.atan2(dy, dx)
+        diff = (target_angle - self.bank_angle + math.pi) % (2 * math.pi) - math.pi
+
+        if diff > self.turn_rate / 2:
+            return 0  # Turn Left
+        elif diff < -self.turn_rate / 2:
+            return 1  # Turn Right
+        else:
+            return 2  # Go Straight
+
     def select_rl_action(self, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> int:
         """
         Select action (0: turn left, 1: turn right, 2: go straight) based on policy or exploration.
+        Boundary repulsion is always applied first as a safety override.
         """
+        # Safety override: wall repulsion takes priority over all policies
+        wall_action = self._get_boundary_override_action()
+        if wall_action is not None:
+            return wall_action
+
         if random.random() < self.exploration_rate:
             return random.choice([0, 1, 2])
-        
+
         if self.svm_model is not None:
             features = self.get_grid_crop_features(ca_grid, humans)
             try:
@@ -230,9 +269,14 @@ class UAVBase:
                         min_dist = dist
                         target_x, target_y = human.x, human.y
 
+        # Fallback: no primary target found → steer toward grid centre so the
+        # UAV drifts back into a useful patrol area.
         if target_x is None:
-            return random.choice([0, 1, 2])
-            
+            target_x = self.width / 2.0
+            target_y = self.height / 2.0
+
+        # Note: boundary repulsion is handled upstream in select_rl_action
+        # via _get_boundary_override_action() so we don't duplicate it here.
         dx = target_x - self.x
         dy = target_y - self.y
         target_angle = math.atan2(dy, dx)
@@ -256,8 +300,8 @@ class UAVBase:
             self.x = self.home_base[0]
             self.y = self.home_base[1]
             self.recalled = False
-            messages = [self.x, self.y, self.fuel, "NO FIRE", "NO HUMAN"]
-            self.latest_messages = messages
+            messages = [self.x, self.y, self.fuel, self.state, None, None, False, False]
+            self.latest_messages = [messages]
             return messages
 
         # Run RL action selection only when cruising at destination
@@ -287,6 +331,15 @@ class UAVBase:
         messages.append(self.x)
         messages.append(self.y)
         messages.append(self.fuel)
+        messages.append(self.uav_type)
+        
+        if self.state == UAVState.CRUISING:
+            messages.append(self.waypoint_x)
+            messages.append(self.waypoint_y)
+        else:
+            messages.append(None)
+            messages.append(None)
+        
 
         detected_cells = self._get_detected_cells(ca_grid)
         detected_humans = self._get_detected_humans(humans)
@@ -299,17 +352,10 @@ class UAVBase:
                 has_fire = True
                 break
 
-        if has_fire:
-            messages.append("FIRE")
-        else:
-            messages.append("NO FIRE")
+        messages.append(has_fire)
+        messages.append(has_human)
         
-        if has_human:
-            messages.append("HUMAN")
-        else:
-            messages.append("NO HUMAN")
-        
-        self.latest_messages = messages
+        self.latest_messages.append(messages)
         return messages
         
     def set_acceleration(self, acceleration: float):
@@ -361,15 +407,24 @@ class UAVBase:
         """
         Get status report of the UAV.
         """
-        return {
-            "id": self.uav_id,
-            "position": [self.x, self.y],
-            "sensor_status": {
-                "sees_fire": "FIRE" in self.latest_messages,
-                "sees_human": "HUMAN" in self.latest_messages,
-                "fuel": self.fuel
+
+        report = []
+        for msg in self.latest_messages:
+            report_entry = {
+                "id": self.uav_id,
+                "position": [msg[0], msg[1]],
+                "uav_type": msg[3],
+                "waypoint": [msg[4], msg[5]],
+                "sensor_status": {
+                    "sees_fire": msg[6],
+                    "sees_human": msg[7],
+                    "fuel": msg[2]
+                }
             }
-        }
+            report.append(report_entry)
+        
+        self.latest_messages.clear()
+        return report
 
 
 class ReconUAV(UAVBase):
@@ -380,6 +435,7 @@ class ReconUAV(UAVBase):
     def __init__(self, uav_id: int = 0, turn_rate:float = math.pi / 10, max_velocity:float = 2.0, width:float = 100, height:float = 100):
         super().__init__(uav_id, turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.RECON
+        self.detection_range = 10.0
 
     def update(self, delta_time: float, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> list[str]:
         messages = super().update(delta_time, ca_grid, humans)
@@ -420,7 +476,7 @@ class RescueUAV(UAVBase):
     def __init__(self, uav_id: int = 0, turn_rate:float = math.pi / 10, max_velocity:float = 1.0, width:float = 100, height:float = 100):
         super().__init__(uav_id, turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.RESCUE
-        self.detection_range = 3
+        self.detection_range = 6
         self.velocity = 0.5
 
     def update(self, delta_time: float, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> list[str]:

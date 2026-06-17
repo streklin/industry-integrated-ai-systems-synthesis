@@ -2,19 +2,22 @@ import os
 import sys
 import pygame
 
+import imageio
+from IPython.display import Video
+
 # Ensure the parent directory is in sys.path so we can import WildFireCA and HumanAgents
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from WildFireCA.WildFireCA import WildFireState, WildfireCA
 from HumanAgents.HumanAgent import HumanAgent, HumanAgentState
-from UAVAgents.UAVBase import UAVType
+from UAVAgents.UAVBase import UAVType, UAVState
 
 
 class WildfireVisualizer:
     """
     Handles visualizing the current state of a WildfireCA simulation grid and Human Agents using Pygame.
     """
-    def __init__(self, ca: WildfireCA, human_agents=None, uavs=None, cell_size: int = 10, window_title: str = "Wildfire CA Simulation", sim_width: int = 100, sim_height: int = 100, image_size: int = 500):
+    def __init__(self, ca: WildfireCA, human_agents=None, uavs=None, cell_size: int = 10, window_title: str = "Wildfire CA Simulation", sim_width: int = 100, sim_height: int = 100, image_size: int = 500, is_recording: bool = False):
         """
         Initialize the visualizer.
         
@@ -57,6 +60,10 @@ class WildfireVisualizer:
         pygame.display.set_caption(window_title)
         self.clock = pygame.time.Clock()
         self.fps = 10  # Default simulation speed (steps per second)
+
+        # recording
+        self.is_recording = is_recording
+        self.frames = []
 
     def _draw_waypoint_diamond(self, gx: float, gy: float):
         """
@@ -171,9 +178,10 @@ class WildfireVisualizer:
             else:
                 self._draw_happy_face(cx, cy, self.cell_size)
 
-        # Draw home base
-        home_x = int((20) * self.cell_size)
-        home_y = int((20) * self.cell_size)
+        # Draw home base — position is read from the first UAV (all share the same base)
+        base = self.uavs[0].home_base if self.uavs else (0.0, 0.0)
+        home_x = int(base[0] * self.cell_size)
+        home_y = int(base[1] * self.cell_size)
         pygame.draw.rect(
             self.screen, 
             (0, 191, 255),  # Deep Sky Blue
@@ -203,8 +211,8 @@ class WildfireVisualizer:
             detection_radius = int(uav.detection_range * self.cell_size)
             pygame.draw.circle(self.screen, (100, 149, 237), (cx, cy), detection_radius, 1) # Cornflower Blue
 
-            # Draw waypoint path + green diamond target marker
-            if uav.waypoint_x != uav.x or uav.waypoint_y != uav.y:
+            # Draw waypoint path + green diamond — only while actively travelling
+            if uav.state == UAVState.TRAVELLING:
                 target_x = int(uav.waypoint_x * self.cell_size)
                 target_y = int(uav.waypoint_y * self.cell_size)
                 pygame.draw.line(self.screen, (180, 180, 180), (cx, cy), (target_x, target_y), 1)
@@ -217,6 +225,10 @@ class WildfireVisualizer:
         # Update full display
         pygame.display.flip()
 
+        # add a frame to the recording
+        if self.is_recording:
+            self.frames.append(self.screen.copy())
+    
     def save_screenshot(self, filename: str):
         """
         Saves the current display frame to a file.
@@ -230,3 +242,22 @@ class WildfireVisualizer:
         pygame.image.save(self.screen, filename)
         print(f"Screenshot saved to {filename}")
 
+    def save_recording(self, filename: str):
+        """
+        Saves the frames as a video output file.
+        
+        Args:
+            filename: Path to the video file to save (e.g. 'video/recording.mp4')
+        """
+        import numpy as np
+
+        # Ensure the output directory exists
+        os.makedirs(os.path.dirname(filename) or ".", exist_ok=True)
+
+        # pygame.surfarray.array3d returns (width, height, 3); imageio wants (height, width, 3)
+        rgb_frames = [
+            np.transpose(pygame.surfarray.array3d(surface), (1, 0, 2))
+            for surface in self.frames
+        ]
+        imageio.mimsave(filename, rgb_frames, fps=30)
+        print(f"Saved human demonstration video to {filename}")
