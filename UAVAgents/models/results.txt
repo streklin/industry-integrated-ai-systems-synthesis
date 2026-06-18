@@ -1,0 +1,55 @@
+
+============================================================
+Training session started: 2026-06-18 10:42:41
+Rounds: 10  Episodes/round: 100
+============================================================
+
+Round 1/10  epsilon=1.000
+  RECON        avg=-6.0784  std=5.9976  (n=10000)
+  EXTINGUISH   avg=-7.5623  std=4.0733  (n=10000)
+  RESCUE       avg=-6.4672  std=5.9224  (n=10000)
+
+Round 2/10  epsilon=0.700
+  RECON        avg=-6.7123  std=2.7864  (n=10000)
+  EXTINGUISH   avg=-7.0572  std=1.7905  (n=10000)
+  RESCUE       avg=-6.3505  std=4.6940  (n=10000)
+
+Round 3/10  epsilon=0.490
+  RECON        avg=-4.2204  std=11.6203  (n=10000)
+  EXTINGUISH   avg=-7.1665  std=0.9641  (n=10000)
+  RESCUE       avg=-6.0208  std=4.3805  (n=10000)
+
+Round 4/10  epsilon=0.343
+  RECON        avg=-6.9509  std=1.5197  (n=10000)
+  EXTINGUISH   avg=-6.9900  std=8.5904  (n=10000)
+  RESCUE       avg=-5.8849  std=4.4964  (n=10000)
+
+Round 5/10  epsilon=0.240
+  RECON        avg=-5.3949  std=9.4659  (n=10000)
+  EXTINGUISH   avg=-6.8769  std=4.3108  (n=10000)
+  RESCUE       avg=-5.8694  std=4.5097  (n=10000)
+
+Round 6/10  epsilon=0.168
+  RECON        avg=-4.9438  std=11.1869  (n=10000)
+  EXTINGUISH   avg=-6.9119  std=3.8278  (n=10000)
+  RESCUE       avg=-6.4206  std=3.9032  (n=10000)
+
+Round 7/10  epsilon=0.118
+  RECON        avg=-5.6303  std=7.1973  (n=10000)
+  EXTINGUISH   avg=-8.4881  std=6.1722  (n=10000)
+  RESCUE       avg=-7.6221  std=5.9221  (n=10000)
+
+Round 8/10  epsilon=0.100
+  RECON        avg=-6.4729  std=4.0729  (n=10000)
+  EXTINGUISH   avg=-7.1601  std=2.4936  (n=10000)
+  RESCUE       avg=-5.8350  std=4.6574  (n=10000)
+
+Round 9/10  epsilon=0.100
+  RECON        avg=-6.1637  std=3.4858  (n=10000)
+  EXTINGUISH   avg=-7.1006  std=8.7183  (n=10000)
+  RESCUE       avg=-5.4986  std=5.2439  (n=10000)
+
+Round 10/10  epsilon=0.100
+  RECON        avg=-5.9931  std=6.0571  (n=10000)
+  EXTINGUISH   avg=-6.8992  std=11.0477  (n=10000)
+  RESCUE       avg=-6.0245  std=4.3553  (n=10000)

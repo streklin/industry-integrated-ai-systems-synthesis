@@ -8,6 +8,9 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.dummy import DummyClassifier
 
+import argparse
+import datetime
+
 # Ensure the parent directory is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -62,63 +65,6 @@ class RLTrainingPipeline:
             ca.grid[self.width // 2][self.height // 2].ignite()
             
         return ca, human_agents
-
-    def collect_expert_demonstrations(self, num_episodes=15):
-        """
-        Use the heuristic fallback policy to collect initial high-quality trajectories.
-        This provides a starting policy classifier far better than random choices.
-        """
-        print(f"Collecting expert demonstrations ({num_episodes} episodes)...")
-        data = {
-            UAVType.RECON: {"states": [], "actions": []},
-            UAVType.EXTINGUISH: {"states": [], "actions": []},
-            UAVType.RESCUE: {"states": [], "actions": []}
-        }
-        
-        for _ in range(num_episodes):
-            ca, humans = self._initialize_simulation()
-            
-            # Spawn agents directly at target cruising areas to ensure high-quality local updates
-            agents = [
-                ReconUAV(width=self.width, height=self.height),
-                FireControlUAV(width=self.width, height=self.height),
-                RescueUAV(width=self.width, height=self.height)
-            ]
-            
-            # Place them near the center or near active fire/humans
-            for agent in agents:
-                agent.x = float(random.randint(40, 60))
-                agent.y = float(random.randint(40, 60))
-                agent.state = UAVState.CRUISING
-                agent.fuel = 100.0
-                
-            for step in range(50): # limit rollout length
-                # Update CA grid every 10 steps
-                if step % 10 == 0:
-                    ca.update()
-                for h in humans:
-                    h.update()
-                    if ca.grid[h.x][h.y].state == WildFireState.BURNING:
-                        h.mark_casualty()
-                
-                for agent in agents:
-                    if agent.fuel <= 0:
-                        continue
-                    
-                    # Get state features
-                    state_feat = agent.get_grid_crop_features(ca.grid, humans)
-                    # Get heuristic action
-                    action = agent.get_heuristic_action(ca.grid, humans)
-                    
-                    # Store demonstration
-                    data[agent.uav_type]["states"].append(state_feat)
-                    data[agent.uav_type]["actions"].append(action)
-                    
-                    # Perform update
-                    agent.apply_rl_action(action)
-                    agent.update(1.0, ca.grid, humans)
-                    
-        return data
 
     def run_rollouts(self, models, num_episodes=20):
         """
@@ -178,7 +124,7 @@ class RLTrainingPipeline:
                     # Compute Reward
                     reward = -0.05 # step penalty
 
-                    # distance to waypoint
+                    # distance to waypoint - UAV should stay in the area it was assigned.
                     reward -= 0.1 * math.sqrt((agent.x - agent.waypoint_x)**2 + (agent.y - agent.waypoint_y)**2)
 
                     if agent.uav_type == UAVType.RECON:
@@ -269,8 +215,10 @@ class RLTrainingPipeline:
             
             # Fit SVM Classifier
             if len(np.unique(best_actions)) < 2:
+                print("Not enough unique actions to train SVM Classifier.")
                 clf = DummyClassifier(strategy="most_frequent")
             else:
+                print("Fitting SVM Model to current best actions...")
                 clf = SVC(kernel='rbf', C=1.0, random_state=42)
             clf.fit(states, best_actions)
             
@@ -289,26 +237,24 @@ class RLTrainingPipeline:
                 pickle.dump(clf, f)
             print(f"Successfully saved {u_type.name} policy to {filepath}")
 
-    def execute_training(self, num_rounds=5, episodes_per_round=25):
+    def execute_training(self, num_rounds=10, episodes_per_round=100):
         """
         Run the full training pipeline.
         """
+
+        results_path = os.path.join(self.models_dir, "results.txt")
+
         print("Starting SVM Reinforcement Learning Training Pipeline...")
-        
-        # 1. Warm start with Heuristic Demonstrations
-        demo_data = self.collect_expert_demonstrations(num_episodes=20)
+        print(f"Training results will be appended to: {results_path}")
         models = {}
-        for u_type in [UAVType.RECON, UAVType.EXTINGUISH, UAVType.RESCUE]:
-            states = np.array(demo_data[u_type]["states"])
-            actions = np.array(demo_data[u_type]["actions"])
-            if len(states) > 0:
-                print(f"Initializing {u_type.name} SVC policy with {len(states)} demonstrations...")
-                if len(np.unique(actions)) < 2:
-                    clf = DummyClassifier(strategy="most_frequent")
-                else:
-                    clf = SVC(kernel='rbf', C=1.0, random_state=42)
-                clf.fit(states, actions)
-                models[u_type] = clf
+
+        # Write a timestamped session header so multiple runs are clearly separated
+        with open(results_path, "a", encoding="utf-8") as rf:
+            rf.write(f"\n{'='*60}\n")
+            rf.write(f"Training session started: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}\n")
+            rf.write(f"Rounds: {num_rounds}  Episodes/round: {episodes_per_round}\n")
+            rf.write(f"{'='*60}\n")
+
 
         # 2. Iterate rounds of rollouts, return estimates, and SVM updates
         for r in range(1, num_rounds + 1):
@@ -316,7 +262,33 @@ class RLTrainingPipeline:
             
             # Collect trajectories
             trajectories = self.run_rollouts(models, num_episodes=episodes_per_round)
-            
+
+            # ── Average reward per UAV type ───────────────────────────────────
+            rewards_by_type = {
+                UAVType.RECON: [],
+                UAVType.EXTINGUISH: [],
+                UAVType.RESCUE: []
+            }
+            for episode in trajectories:
+                for step in episode:
+                    rewards_by_type[step["uav_type"]].append(step["reward"])
+
+            print("  Average reward per model:")
+            with open(results_path, "a", encoding="utf-8") as rf:
+                rf.write(f"\nRound {r}/{num_rounds}  epsilon={self.epsilon:.3f}\n")
+                for u_type, rewards in rewards_by_type.items():
+                    if rewards:
+                        avg = np.mean(rewards)
+                        std = np.std(rewards)
+                        line = f"  {u_type.name:<12} avg={avg:+.4f}  std={std:.4f}  (n={len(rewards)})"
+                        print(f"  {line}")
+                        rf.write(line + "\n")
+                    else:
+                        line = f"  {u_type.name:<12} no data collected this round"
+                        print(f"  {line}")
+                        rf.write(line + "\n")
+            # ─────────────────────────────────────────────────────────────────
+
             # Update models
             models = self.train_round(trajectories, models)
             
@@ -328,11 +300,11 @@ class RLTrainingPipeline:
             
         print("\nTraining completed successfully! All models saved to standard models/ directory.")
 
+
 if __name__ == "__main__":
-    import argparse
     parser = argparse.ArgumentParser(description="SVM RL Agent Trainer")
-    parser.add_argument("--rounds", type=int, default=5, help="Number of training rounds")
-    parser.add_argument("--episodes", type=int, default=20, help="Episodes per training round")
+    parser.add_argument("--rounds", type=int, default=10, help="Number of training rounds")
+    parser.add_argument("--episodes", type=int, default=100, help="Episodes per training round")
     args = parser.parse_args()
     
     pipeline = RLTrainingPipeline()
