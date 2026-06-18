@@ -43,3 +43,24 @@ class CommandCenterResponse(BaseModel):
             "issue a DEPLOY command with a RECON waypoint to the highest-priority sector."
         )
     )
+
+
+class PlanGuideline(BaseModel):
+    goal: str = Field(
+        description="The high level goal we are pursuing"
+    )
+    priority: int = Field(
+        description="The priority of the goal"
+    )
+    reason: str = Field(
+        description="The reasoning for the plan guideline"
+    )
+
+class PlanGuidelines(BaseModel):
+    plan_guidelines: List[PlanGuideline] = Field(
+        min_length=1,
+        description="The list of plan guidelines"
+    )
+    reasoning: str = Field(
+        description="The reasoning for the plan guidelines"
+    )

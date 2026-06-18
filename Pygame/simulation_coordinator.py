@@ -94,13 +94,22 @@ class SimulationCoordinator:
                 
             mask_pil = Image.fromarray((pred_mask * 255).astype(np.uint8))
             scaled_mask_pil = mask_pil.resize((500, 500))
+
+            # Convert to RGB red/green so the image matches the system prompt:
+            # "Red Pixels = danger, Green Pixels = safe"
+            mask_np = np.array(scaled_mask_pil)           # shape (500, 500), values 0 or 255
+            rgb_mask = np.zeros((500, 500, 3), dtype=np.uint8)
+            rgb_mask[..., 0] = mask_np                    # R channel: bright where high-risk
+            rgb_mask[..., 1] = 255 - mask_np              # G channel: bright where safe
+            rgb_mask_pil = Image.fromarray(rgb_mask, mode='RGB')
+
             mask_buffer = io.BytesIO()
-            scaled_mask_pil.save(mask_buffer, format="PNG")
+            rgb_mask_pil.save(mask_buffer, format="PNG")
             risk_mask_bytes = mask_buffer.getvalue()
         except Exception as e:
             print(f"[Coordinator] Model inference failed: {e}")
-            # Fallback to a blank image risk mask
-            blank_mask = Image.new("L", (500, 500), color=0)
+            # Fallback to a blank green (all-safe) mask
+            blank_mask = Image.new("RGB", (500, 500), color=(0, 255, 0))
             blank_buffer = io.BytesIO()
             blank_mask.save(blank_buffer, format="PNG")
             risk_mask_bytes = blank_buffer.getvalue()

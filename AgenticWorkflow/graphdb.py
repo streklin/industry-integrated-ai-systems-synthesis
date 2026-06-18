@@ -7,6 +7,7 @@ from osbot_utils.type_safe.primitives.domains.identifiers.Edge_Id import Edge_Id
 from osbot_utils.type_safe.primitives.domains.identifiers.Node_Id import Node_Id
 from typing import Dict, List
 from pydantic import BaseModel, Field
+import threading
 
 
 ########################################################################
@@ -54,247 +55,232 @@ class Custom_Graph(Schema__MGraph__Graph):
 
 
 class MGraphManager:
-    """Manager class for handling MGraph operations."""
+    """
+    Manager class for handling MGraph operations.
+    
+    ## ONTOLOGY
 
+    Entities:
+    LONG TERM GOAL: One of SEARCH, HOUSING, FIRE_FIGHTING
+    GOAL: Represents a subgoal of a long-term goal.
+    GOAL_TYPE: One of RECON, EXTINGUISH, RESCUE
+    POSITION: Represents a position in the graph.
+    X-COORDINATE: A number representing X COORDINATE on the simulation map
+    Y-COORDINATE: A number representing Y COORDINATE on the simulation map
+    PRIORITY: One of HIGH, MEDIUM, LOW
+
+    Relationships:
+    - LONG TERM GOAL -- HAS_GOAL --> GOAL
+    - GOAL -- HAS_TYPE --> GOAL_TYPE
+    - GOAL -- HAS_POSITION --> POSITION
+    - POSITION -- HAS_X_COORDINATE --> X-COORDINATE
+    - POSITION -- HAS_Y_COORDINATE --> Y-COORDINATE
+    - GOAL -- HAS_PRIORITY --> PRIORITY
+    """
     def __init__(self):
         self.mgraph = MGraph()
+        # Serialise all graph access: pydantic_ai runs tool calls concurrently
+        # in a thread pool, and MGraph's underlying dicts are not thread-safe.
+        self._lock = threading.Lock()
     
-    def restore_graph(self, graph_file="knowledge_graph.json"):
-        """Restores the MGraph from a JSON file, ensuring that the custom node and edge types are preserved."""
-        print(f"Loading knowledge graph from {graph_file}...")
-        with open(graph_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-
-        graph_schema = Custom_Graph.from_json(data)
-        self.mgraph.graph.model.data = graph_schema  # type: ignore
-        self.mgraph.edit().rebuild_index()
-
-    def insert_triplet_list(self, relationships: list[GraphTriplet]):
-        """Inserts a list of triplets into the MGraph."""
-        
-        # We build the KG from unique Entity names, so we need to keep track of which entities we've already added to the graph to avoid duplicates.
-        # We can use a dictionary to map entity names to their corresponding node IDs in the graph, which will allow us to easily reference existing nodes when adding relationships.
-        
-        print(f"Inserting {len(relationships)} triplets into graph...")
-        entities = {}
-
-        with self.mgraph.edit() as edit:
-            for triplet in relationships:
-                
-                subject_id = None
-                object_id = None
-
-                # insert base entites as nodes in the graph if they haven't already been added, and keep track of their node IDs in the entities dictionary
-                if triplet.subject.name in entities:
-                    subject_id = entities[triplet.subject.name]
-                else:
-
-                    subject = edit.new_node(
-                        node_type=Custom_Node, # type: ignore
-                        name=triplet.subject.name,
-                        description=triplet.subject.description
-                    )
-
-                    subject_id = subject.node_id
-                    entities[triplet.subject.name] = subject_id
-
-                if triplet.object.name in entities:
-                    object_id = entities[triplet.object.name]
-                else:
-                    object = edit.new_node(
-                        node_type=Custom_Node, # type: ignore
-                        name=triplet.object.name,
-                        description=triplet.object.description
-                    )
-                    object_id = object.node_id
-                    entities[triplet.object.name] = object_id
-                
-                # insert relationship as an edge in the graph, referencing the node IDs of the subject and object
-                edit.new_edge(
-                    edge_type=Custom_Edge,      # Tells mgraph to use your new schema
-                    from_node_id=subject_id,
-                    to_node_id=object_id,
-                    edge_data={
-                        "predicate": triplet.predicate  # This will now bypass the type-checker!
-                    }
-                )
-
-    def export_graph(self, output_file="exported_graph.json"):
-        """Exports the current state of the MGraph to a JSON file."""
-        with self.mgraph.export() as export:
-            data = export.to__mgraph_json()
-            with open(output_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
-
-    def query_by_entity_type(self, entity_type: str):
+    def get_goals(self, long_term_goal: str) -> list[GraphTriplet]:
         """
-        Queries the knowledge graph for all entities of a specific type and their relationships.
+        Get all goal entities associated with a long term goal
 
         Args:
-            entity_type: The type of entities to query for (e.g., character, location, object, event, theme, genre).
+            long_term_goal: The long term goal we are interested in.
+        
         Returns:
-            A summary of all entities of the specified type and their relationships in the knowledge graph.
+            GraphTriplets starting with the long_term_goal as the subject and the goals as the object.
         """
-        print(f"Querying graph for entities of type: {entity_type}")
-        results = []
+        with self._lock:
+            results = []
+            target_node_id = None
+            
+            with self.mgraph.data() as data:
+                for node in data.nodes():
+                    if hasattr(node, 'node_data') and getattr(node.node_data, 'name', None) == long_term_goal:
+                        target_node_id = node.node_id
+                        break    
+                
+                if target_node_id is None:
+                    return []
 
-        with self.mgraph.data() as data:
-            for node in data.nodes():
-                if hasattr(node, 'node_data') and getattr(node.node_data, 'type', None) == entity_type:
-                    results.append(getattr(node.node_data, 'name', None))
+                for edge in data.edges():
+                    if edge.from_node_id() == target_node_id or edge.to_node_id() == target_node_id:
+                
+                        subject = data.node(edge.from_node_id()).node_data.name
+                        predicate = getattr(edge.edge.data.edge_data, 'predicate', None)
+                        object = data.node(edge.to_node_id()).node_data.name
 
-        return results
+                        results.append(GraphTriplet(
+                            subject=NamedEntity(name=subject, description=""),
+                            predicate=predicate,
+                            object=NamedEntity(name=object, description="")
+                        ))
 
-    def query_by_predicate(self, predicate: str):
+            return results
+
+    def query_subgraph_by_entity_name(self, entity_name: str) -> list[GraphTriplet]:
         """
-        Queries the knowledge graph for all edges of a specific predicate.
-
-        Args:
-            predicate: The predicate to query for (e.g., character, location, object, event, theme, genre).
-        Returns:
-            A summary of all edges of the specified predicate in the knowledge graph.
-        """
-        print(f"Querying graph for edges with predicate: {predicate}")
-        results = []
-
-        with self.mgraph.data() as data:
-            for edge in data.edges():
-                if getattr(edge.edge.data.edge_data, 'predicate', None) == predicate:
-                    results.append((edge.from_node().node_data.name, edge.edge.data.edge_data.predicate, edge.to_node().node_data.name))
-
-        return results
-
-    def query_all(self):
-        """
-        Queries the knowledge graph for all entities and their relationships.
-
-        Returns:
-            A summary of all entities and their relationships in the knowledge graph.
-        """
-        results = []
-
-        with self.mgraph.data() as data:
-            for node in data.nodes():
-                results.append(getattr(node.node_data, 'name', None))
-            for edge in data.edges():
-                results.append((edge.from_node().node_data.name, edge.edge.data.edge_data.predicate, edge.to_node().node_data.name))
-
-        return results
-
-    def query_by_entity_name(self, entity_name: str):
-        """
-        Queries the knowledge graph for a specific entity and its relationships.
-
+        Query the knowledge graph for a specific entity.
+        
         Args:
             entity_name: The name of the entity to query for.
-
-        Returns:
-            A summary of the specified entity and its relationships in the knowledge graph.
-        """
-        print(f"Querying graph for entities of name: {entity_name}")
-
-        results = []
-
-        target_node_id = None
-
-        with self.mgraph.data() as data:
-            for node in data.nodes():
-                if hasattr(node, 'node_data') and getattr(node.node_data, 'name', None) == entity_name:
-                    target_node_id = node.node_id
-                    break    
         
-            for edge in data.edges():
-                if edge.from_node_id() == target_node_id or edge.to_node_id() == target_node_id:
-            
-                    subject = data.node(edge.from_node_id()).node_data.name
-                    predicate = getattr(edge.edge.data.edge_data, 'predicate', None)
-                    object = data.node(edge.to_node_id()).node_data.name
-            
-                    results.append((subject, predicate, object))
-
-        return str(results)
-    
-
-    def insert_predicate(self, subject: str, predicate: str, object: str):
-        """
-        Inserts a new triplet into the knowledge graph, creating nodes for the subject and object if they do not already exist, and an edge for the predicate that connects them.
-
-        Args:
-            subject: The subject of the relationship to insert into the knowledge graph.
-            predicate: The predicate of the relationship to insert into the knowledge graph.
-            object: The object of the relationship to insert into the knowledge graph.
-
         Returns:
-            True if task completed, False if an error ocurred.
-        """
-
-        print(f"Inserting triplet {subject}->{predicate}->{object}")
-
-        try:
-            subject_node_id = None
-            object_node_id = None
+            GraphTriplets starting with the long_term_goal as the subject and the entity_name as the object.
+        """ 
+        with self._lock:
+            results = []
+            target_node_id = None
 
             with self.mgraph.data() as data:
                 for node in data.nodes():
-                    if hasattr(node, 'node_data'):
-                        if getattr(node.node_data, 'name', None) == subject:
-                            subject_node_id = node.node_id
-                        elif getattr(node.node_data, 'name', None) == object:
-                            object_node_id = node.node_id
+                    if hasattr(node, 'node_data') and getattr(node.node_data, 'name', None) == entity_name:
+                        target_node_id = node.node_id
+                        break    
+            
+                for edge in data.edges():
+                    if edge.from_node_id() == target_node_id or edge.to_node_id() == target_node_id:
+                
+                        subject = data.node(edge.from_node_id()).node_data.name
+                        predicate = getattr(edge.edge.data.edge_data, 'predicate', None)
+                        object = data.node(edge.to_node_id()).node_data.name
+
+                        results.append(GraphTriplet(
+                            subject=NamedEntity(name=subject, description=""),
+                            predicate=predicate,
+                            object=NamedEntity(name=object, description="")
+                        ))
+
+            return results
+
+    def query_subgraph_by_relationship_name(self, relationship_name: str) -> list[GraphTriplet]:
+        """
+        Query the knowledge graph for a specific relationship.
+        
+        Args:
+            relationship_name: The name of the relationship to query for.
+        
+        Returns:
+            GraphTriplets starting with the long_term_goal as the subject and the relationship_name as the object.
+        """
+        with self._lock:
+            results = []
+
+            with self.mgraph.data() as data:
+                for edge in data.edges():
+                    predicate = getattr(edge.edge.data.edge_data, 'predicate', None)
+                    if predicate == relationship_name:
+                        subject = data.node(edge.from_node_id()).node_data.name
+                        object = data.node(edge.to_node_id()).node_data.name
+
+                        results.append(GraphTriplet(
+                            subject=NamedEntity(name=subject, description=""),
+                            predicate=predicate,
+                            object=NamedEntity(name=object, description="")
+                        ))
+
+            return results
+
+    def _insert_or_get_node(self, node_name: str, node_type: str):
+        """
+        Insert a new node into the knowledge graph.
+        
+        Args:
+            node_name: The name of the node to insert.
+            node_type: The type of the node to insert.
+        
+        Returns:
+            The node that was inserted or retrieved.
+        NOTE: Caller must already hold self._lock.
+        """
+        with self.mgraph.data() as data:
+            for node in data.nodes():
+                if hasattr(node, 'node_data') and getattr(node.node_data, 'name', None) == node_name:
+                    return node
+
+        with self.mgraph.edit() as edit:
+            node = edit.new_node(
+                node_type=Custom_Node,
+                name=node_name,
+                type=node_type,
+                description=""
+            )
+            return node
+
+    def insert_goal(self, long_term_goal: str, goal: str, goal_type: str, position: str, position_x: str, position_y: str, priority: str) -> bool:
+        """
+        Insert a new goal into the knowledge graph.
+        
+        Args:
+            long_term_goal: The long term goal we are interested in.
+            goal: The name of the goal to insert.
+            goal_type: The type of the goal.
+            position: The position of the goal.
+            position_x: The x coordinate of the goal.
+            position_y: The y coordinate of the goal.
+            priority: The priority of the goal.
+        
+        Returns:
+            True if the goal was inserted successfully, False otherwise.
+        """
+        with self._lock:
+            long_term_goal_node = self._insert_or_get_node(long_term_goal, 'LONG TERM GOAL')
+            goal_node           = self._insert_or_get_node(goal, 'GOAL')
+            goal_type_node      = self._insert_or_get_node(goal_type, 'GOAL_TYPE')
+            position_node       = self._insert_or_get_node(position, 'POSITION')
+            position_x_node     = self._insert_or_get_node(position_x, 'X-COORDINATE')
+            position_y_node     = self._insert_or_get_node(position_y, 'Y-COORDINATE')
+            priority_node       = self._insert_or_get_node(priority, 'PRIORITY')
             
             with self.mgraph.edit() as edit:
-                if subject_node_id is None:
-                    subject_node = edit.new_node(
-                        node_type=Custom_Node, # type: ignore
-                        name=subject,
-                        description=""
-                    )
-                    subject_node_id = subject_node.node_id
+                edit.new_edge(from_node_id=long_term_goal_node.node_id, to_node_id=goal_node.node_id,
+                              edge_type=Custom_Edge, edge_data={'predicate': "HAS_GOAL"})
+                edit.new_edge(from_node_id=goal_node.node_id, to_node_id=goal_type_node.node_id,
+                              edge_type=Custom_Edge, edge_data={'predicate': "HAS_GOAL_TYPE"})
+                edit.new_edge(from_node_id=goal_node.node_id, to_node_id=position_node.node_id,
+                              edge_type=Custom_Edge, edge_data={'predicate': "HAS_POSITION"})
+                edit.new_edge(from_node_id=position_node.node_id, to_node_id=position_x_node.node_id,
+                              edge_type=Custom_Edge, edge_data={'predicate': "HAS_X-COORDINATE"})
+                edit.new_edge(from_node_id=position_node.node_id, to_node_id=position_y_node.node_id,
+                              edge_type=Custom_Edge, edge_data={'predicate': "HAS_Y-COORDINATE"})
+                edit.new_edge(from_node_id=goal_node.node_id, to_node_id=priority_node.node_id,
+                              edge_type=Custom_Edge, edge_data={'predicate': "HAS_PRIORITY"})
+            return True
 
-                if object_node_id is None:
-                    object_node = edit.new_node(
-                        node_type=Custom_Node, # type: ignore
-                        name=object,
-                        description=""
-                    )
-                    object_node_id = object_node.node_id
-
-                edit.new_edge(
-                    edge_type=Custom_Edge,      # Tells mgraph to use your new schema
-                    from_node_id=subject_node_id,
-                    to_node_id=object_node_id,
-                    edge_data={
-                        "predicate": predicate  # This will now bypass the type-checker!
-                    }
-                )
-                return True
-        except Exception as e:
-            print(f"Error: {e}")
-            return False
-
-    def remove_predicate(self, subject: str, predicate: str, object: str):
+    def delete_entity(self, entity_name: str) -> bool:
         """
-        Removes a specific predicate (relationship) between two entities in the knowledge graph.
-
+        Delete an entity from the knowledge graph.
+        
         Args:
-            subject: The subject of the relationship to remove from the knowledge graph.
-            predicate: The predicate of the relationship to remove from the knowledge graph.
-            object: The object of the relationship to remove from the knowledge graph.
+            entity_name: The name of the entity to delete.
+        
+        Returns:
+            True if the entity was deleted successfully, False otherwise.
         """
-        print(f"Removing triplet {subject}->{predicate}->{object}")
+        with self._lock:
+            target_node_id = None
 
+            with self.mgraph.data() as data:
+                for node in data.nodes():
+                    if hasattr(node, 'node_data') and getattr(node.node_data, 'name', None) == entity_name:
+                        target_node_id = node.node_id
+                        break
 
-        try:
+            if target_node_id is None:
+                return False
 
             with self.mgraph.edit() as edit:
-                for edge in edit.edges():  # type: ignore
-                    edge_subject = edit.node(edge.from_node_id()).node_data.name  # type: ignore
-                    edge_predicate = getattr(edge.edge_data, 'predicate', None)
-                    edge_object = edit.node(edge.to_node_id()).node_data.name  # type: ignore
+                with self.mgraph.data() as data:
+                    for edge in data.edges():
+                        if edge.from_node_id() == target_node_id or edge.to_node_id() == target_node_id:
+                            edit.delete_edge(edge.edge.edge_id)
 
-                    if edge_subject == subject and edge_predicate == predicate and edge_object == object:
-                        edit.delete_edge(edge.edge_id)
+                edit.delete_node(target_node_id)
+
             return True
-        except Exception as e:
-            print(f"Error: {e}")
-            return False
+
+
+

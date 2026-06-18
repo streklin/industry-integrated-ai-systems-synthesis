@@ -4,6 +4,11 @@ import random
 import pygame
 import pickle
 
+# Force UTF-8 output so LLM responses containing Unicode (e.g. → arrows)
+# don't crash with UnicodeEncodeError on Windows consoles using cp1252.
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # Ensure the parent directory is in sys.path so we can import WildFireCA and HumanAgents
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # Ensure Pygame directory is also in sys.path
@@ -162,6 +167,9 @@ def main():
         pygame.quit()
         sys.exit()
 
+    # maximum number of simulation steps 1500
+    max_steps = 750
+
     try:
         while running:
             for event in pygame.event.get():
@@ -218,10 +226,12 @@ def main():
             # Show status in console
             if step % 10 == 0 or burning_cells == 0:
                 print(f"Step {step:02d} | Burning Cells: {burning_cells:4d} | Humans Alive: {alive:2d} | Rescued: {rescued:2d} | Casualties: {casualties:2d}")
-                
+            
+            max_steps -= 1
+
             # If fire has burned out, wait for user to exit
-            if burning_cells == 0:
-                print(f"\nFire burned out at step {step}. Final Humans State - Alive: {alive}, Rescued: {rescued}, Casualties: {casualties}.")
+            if burning_cells == 0 or max_steps == 0:
+                print(f"\nFire burned out or simulation timed out at step {step}. Final Humans State - Alive: {alive}, Rescued: {rescued}, Casualties: {casualties}.")
                 print("Press ESC or close the window to exit.")
                 while True:
                     for event in pygame.event.get():

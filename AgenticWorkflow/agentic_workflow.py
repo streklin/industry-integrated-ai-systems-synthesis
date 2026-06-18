@@ -10,16 +10,23 @@ from collections import deque
 
 from graphdb import MGraphManager
 
-from pydantic_models import CommandCenterResponse
+from pydantic_models import CommandCenterResponse, PlanGuidelines
 
 load_dotenv()
 
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 
-model = AnthropicModel(
-    'claude-haiku-4-5', 
+# Sonnet for agents that require strong multimodal/spatial reasoning
+model_sonnet = AnthropicModel(
+    'claude-sonnet-4-5',
     provider=AnthropicProvider(api_key=ANTHROPIC_API_KEY)
-)   
+)
+
+# Haiku for lightweight text-only tasks (AssistantAgent)
+model_haiku = AnthropicModel(
+    'claude-haiku-4-5',
+    provider=AnthropicProvider(api_key=ANTHROPIC_API_KEY)
+)
 
 # Maximum characters allowed in the text portion of any agent prompt.
 # The two images are passed as BinaryContent and do not count toward this limit.
@@ -81,6 +88,25 @@ class StrategyAgent:
         This graph stores the goals, subgoals, and priorities of the system.
         You will be given tools to read and write information to the knowledge the graph.
 
+        ## Knowledge Graph ONTOLOGY
+
+        Entities:
+        LONG TERM GOAL: One of SEARCH, HOUSING, FIRE_FIGHTING
+        GOAL: Represents a subgoal of a long-term goal.
+        GOAL_TYPE: One of RECON, EXTINGUISH, RESCUE
+        POSITION: Represents a position in the graph.
+        X-COORDINATE: A number representing X COORDINATE on the simulation map
+        Y-COORDINATE: A number representing Y COORDINATE on the simulation map
+        PRIORITY: One of HIGH, MEDIUM, LOW
+
+        Relationships:
+        - LONG TERM GOAL -- HAS_GOAL --> GOAL
+        - GOAL -- HAS_TYPE --> GOAL_TYPE
+        - GOAL -- HAS_POSITION --> POSITION
+        - POSITION -- HAS_X_COORDINATE --> X-COORDINATE
+        - POSITION -- HAS_Y_COORDINATE --> Y-COORDINATE
+        - GOAL -- HAS_PRIORITY --> PRIORITY
+
         ## REASONING STRATEGY
         You will use the Knowledge Graph to track the goals and determine the next priorities.
         Your reasoning process will be:
@@ -102,36 +128,34 @@ class StrategyAgent:
 
         Example:
         GOAL POSITION (50,50) PRIORITY 1 REASON: The fire is spreading to the urban area
-
-
         """
-
         self.agent = Agent(
-            model,
+            model_sonnet,
+            output_type=PlanGuidelines,
             system_prompt=system_prompt
         )
 
         self.agent.tool_plain(
             docstring_format="google"
-        )(graphManager.query_by_entity_name)
+        )(graphManager.query_subgraph_by_entity_name)
 
         self.agent.tool_plain(
             docstring_format="google"
-        )(graphManager.query_by_predicate)
-
+        )(graphManager.query_subgraph_by_relationship_name)
+        
         self.agent.tool_plain(
             docstring_format="google"
-        )(graphManager.insert_triplet_list)
-
+        )(graphManager.insert_goal)
+        
         self.agent.tool_plain(
             docstring_format="google"
-        )(graphManager.insert_predicate)
-
+        )(graphManager.delete_entity)
+        
         self.agent.tool_plain(
             docstring_format="google"
-        )(graphManager.remove_predicate)
+        )(graphManager.get_goals)
 
-    def _build_text_prompt(self, uav_messages) -> str:
+    def _build_text_prompt(self, uav_messages, steps_remaining) -> str:
         """
         Assemble the text portion of the StrategyAgent prompt and truncate it
         to MAX_TEXT_CHARS characters so the combined context stays within limits.
@@ -140,6 +164,7 @@ class StrategyAgent:
         """
         history = list(reversed(self.memory))  # most-recent first
         text = (
+            f"There are {steps_remaining} steps remaining in this simulation.\n\n"
             f"Here are the latest UAV messages: {uav_messages}\n\n"
             f"Here is a history of your previous responses:\n{history}"
         )
@@ -148,11 +173,11 @@ class StrategyAgent:
             text += "\n\n[... context truncated to fit token limit ...]"
         return text
 
-    def run_agent(self, uav_messages, satellite_image, risk_image):
+    def run_agent(self, uav_messages, satellite_image, risk_image, steps_remaining):
         """
         Run the state management agent to update the knowledge graph.
         """
-        text_part = self._build_text_prompt(uav_messages)
+        text_part = self._build_text_prompt(uav_messages, steps_remaining)
         prompt = [
             text_part,
             satellite_image,
@@ -179,6 +204,7 @@ class DispatchAgent:
         """
 
         self.memory = deque(maxlen=5)
+        self.graphManager = graphManager
 
         system_prompt = """
         You are an expert in translating high level fire control and monitoring stratgies into commands for a fleet of UAVs
@@ -186,14 +212,7 @@ class DispatchAgent:
         You will be given:
         
         ## Priority List
-        A priority list will be provided by the strategy agent. You must follow this list to determine where to send UAVs.
-        The priority list should be in the following format:
-
-        - PRIORITY 1; LOCATION 55,55
-        - PRIORITY 2; LOCATION 80,80
-        - PRIORITY 3; LOCATION 30,35
-
-        You will be given the following tools:
+        A list of strategic priorities.
 
         ## History
         A list of your previous commands sent to the simulation.
@@ -252,6 +271,29 @@ class DispatchAgent:
         WildFireState.ASH: (128, 128, 128),         # Grey
         WildFireState.WATER: (0, 0, 255)            # Blue
 
+        ## Knowledge Graph
+        You will be given a knowledge graph.
+        This graph stores the goals, subgoals, and priorities of the system.
+        You will be given tools to read and write information to the knowledge the graph.
+
+        ## Knowledge Graph ONTOLOGY
+        Entities:
+        LONG TERM GOAL: One of SEARCH, HOUSING, FIRE_FIGHTING
+        GOAL: Represents a subgoal of a long-term goal.
+        GOAL_TYPE: One of RECON, EXTINGUISH, RESCUE
+        POSITION: Represents a position in the graph.
+        X-COORDINATE: A number representing X COORDINATE on the simulation map
+        Y-COORDINATE: A number representing Y COORDINATE on the simulation map
+        PRIORITY: One of HIGH, MEDIUM, LOW
+
+        Relationships:
+        - LONG TERM GOAL -- HAS_GOAL --> GOAL
+        - GOAL -- HAS_TYPE --> GOAL_TYPE
+        - GOAL -- HAS_POSITION --> POSITION
+        - POSITION -- HAS_X_COORDINATE --> X-COORDINATE
+        - POSITION -- HAS_Y_COORDINATE --> Y-COORDINATE
+        - GOAL -- HAS_PRIORITY --> PRIORITY
+
         ## Current Plan
         The current high-level plan generated by the strategy agent.
 
@@ -269,18 +311,30 @@ class DispatchAgent:
 
         ## PRIORITIES
         1. RESCUE AS MANY HUMANS AS POSSIBLE.
-        2. KEEP URBAN AND HOUSING CELLS SAFE FROM FIRE.
-        3. EXTINGUISH THE FIRE AS FAST AS POSSIBLE.
+        2. RESCUE HUMANS NEAR FIRE FIRST
+        3. KEEP URBAN AND HOUSING CELLS SAFE FROM FIRE.
+        4. EXTINGUISH THE FIRE AS FAST AS POSSIBLE.
         """
-
-        self.graphManager = graphManager
         self.agent = Agent(
-            model,
+            model_sonnet,
             output_type=CommandCenterResponse,
             system_prompt=system_prompt
         )
 
-    def run_agent(self, uav_messages, plan, satellite_image, risk_image) -> CommandCenterResponse:
+        self.agent.tool_plain(
+            docstring_format="google"
+        )(graphManager.query_subgraph_by_entity_name)
+        
+        self.agent.tool_plain(
+            docstring_format="google"
+        )(graphManager.query_subgraph_by_relationship_name)
+
+        self.agent.tool_plain(
+            docstring_format="google"
+        )(graphManager.get_goals)
+
+
+    def run_agent(self, uav_messages, plan, satellite_image, risk_image, steps_remaining) -> CommandCenterResponse:
         """
         Run the dispatch agent to translate the strategy plan into UAV commands.
 
@@ -293,6 +347,7 @@ class DispatchAgent:
         history = list(reversed(self.memory))  # most-recent first
         text = (
             f"Generate commands for EVERY available UAV in the fleet. This include UAVs that are travelling or at home base.\n\n"
+            f"There are {steps_remaining} steps remaining in this simulation.\n\n"
             f"The number of UAVs is {len(uav_messages)}. Generate a command for each one. Do not miss any.\n\n"
             f"Here are the latest UAV messages: {uav_messages}\n\n"
             f"Here is the current plan from the strategy agent:\n{plan}\n\n"
@@ -343,24 +398,27 @@ class AssistantAgent:
         """
 
         self.agent = Agent(
-            model,
+            model_haiku,
             system_prompt=system_prompt
         )
+        
         self.agent.tool_plain(
             docstring_format="google"
-        )(graphManager.query_by_entity_name)
+        )(graphManager.query_subgraph_by_entity_name)
 
         self.agent.tool_plain(
             docstring_format="google"
-        )(graphManager.query_by_predicate)
-
+        )(graphManager.query_subgraph_by_relationship_name)
+        
         self.agent.tool_plain(
             docstring_format="google"
-        )(graphManager.insert_predicate)
-
+        )(graphManager.insert_goal)
+        
+        
         self.agent.tool_plain(
             docstring_format="google"
-        )(graphManager.remove_predicate)
+        )(graphManager.get_goals)
+   
 
     def run_agent(self, query:str, current_plan:str) -> str:
         """
@@ -397,21 +455,27 @@ class CommandCenterAgent:
         self.current_plan = None
         self.plan_age = 0
         self.plan_update_interval = 5
+        self.iteration = 0
 
     def update(self, uav_messages, satellite_image, risk_image):
         """
         Update the knowledge graph with new information from UAVs and satellites.
         """
+        steps_remaining = 500 - self.iteration * 40
+        self.iteration += 1
+
         sat_bytes = BinaryContent(data=satellite_image, media_type='image/png')
         risk_bytes = BinaryContent(data=risk_image, media_type='image/png')
 
         # develop a plan with the strategy agent
         if self.current_plan is None or self.plan_age >= self.plan_update_interval:
-            self.current_plan = self.strategy_agent.run_agent(uav_messages, sat_bytes, risk_bytes)
+            self.current_plan = self.strategy_agent.run_agent(uav_messages, sat_bytes, risk_bytes, steps_remaining)
             self.plan_age = 0
 
+        
+
         # generate a new set of commands for the UAVs
-        response = self.dispatch_agent.run_agent(uav_messages, self.current_plan, sat_bytes, risk_bytes)
+        response = self.dispatch_agent.run_agent(uav_messages, self.current_plan, sat_bytes, risk_bytes, steps_remaining)
         self.plan_age += 1
 
         return [cmd.model_dump() for cmd in response.commands]

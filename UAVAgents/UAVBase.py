@@ -435,7 +435,7 @@ class ReconUAV(UAVBase):
     def __init__(self, uav_id: int = 0, turn_rate:float = math.pi / 10, max_velocity:float = 2.0, width:float = 100, height:float = 100):
         super().__init__(uav_id, turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.RECON
-        self.detection_range = 10.0
+        self.detection_range = 5
 
     def update(self, delta_time: float, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> list[str]:
         messages = super().update(delta_time, ca_grid, humans)
@@ -476,7 +476,7 @@ class RescueUAV(UAVBase):
     def __init__(self, uav_id: int = 0, turn_rate:float = math.pi / 10, max_velocity:float = 1.0, width:float = 100, height:float = 100):
         super().__init__(uav_id, turn_rate, max_velocity, width, height)
         self.uav_type = UAVType.RESCUE
-        self.detection_range = 6
+        self.detection_range = 5
         self.velocity = 0.5
 
     def update(self, delta_time: float, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> list[str]:

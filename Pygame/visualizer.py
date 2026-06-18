@@ -182,16 +182,11 @@ class WildfireVisualizer:
         base = self.uavs[0].home_base if self.uavs else (0.0, 0.0)
         home_x = int(base[0] * self.cell_size)
         home_y = int(base[1] * self.cell_size)
-        pygame.draw.rect(
-            self.screen, 
-            (0, 191, 255),  # Deep Sky Blue
-            pygame.Rect(home_x - 8, home_y - 8, 16, 16),
-            2
-        )
+        # Draw home base as a filled black square
         pygame.draw.rect(
             self.screen,
-            (255, 255, 255),
-            pygame.Rect(home_x - 4, home_y - 4, 8, 8)
+            (0, 0, 0),  # Black
+            pygame.Rect(home_x - 8, home_y - 8, 16, 16)
         )
 
         # Draw UAV agents
@@ -260,4 +255,4 @@ class WildfireVisualizer:
             for surface in self.frames
         ]
         imageio.mimsave(filename, rgb_frames, fps=30)
-        print(f"Saved human demonstration video to {filename}")
+        print(f"Saved human demonstration video to {filename}")
