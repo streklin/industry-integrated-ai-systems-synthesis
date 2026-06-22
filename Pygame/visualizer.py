@@ -3,7 +3,6 @@ import sys
 import pygame
 
 import imageio
-from IPython.display import Video
 
 # Ensure the parent directory is in sys.path so we can import WildFireCA and HumanAgents
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
