@@ -12,11 +12,12 @@ This project implements a fully integrated AI system that autonomously manages a
 | Layer | Technology | Role |
 |---|---|---|
 | **Environment** | Cellular Automaton (CA) | Probabilistic wildfire spread simulation |
-| **UAV Policy** | Reinforcement Learning (SVM / RandomForest) | Per-UAV autonomous flight, fire-fighting, and rescue behaviour |
+| **UAV Behaviour** | Subsumption Architecture | Per-UAV autonomous flight, fire-fighting, and rescue behaviour |
 | **Risk Prediction** | UNet (CNN) | Real-time fire-spread risk map from satellite imagery |
 | **Command & Control** | LLM Agentic Workflow (Claude Sonnet/Haiku) | High-level strategy planning and UAV dispatch |
 | **State Memory** | Knowledge Graph (MGraph) | Persistent goal and priority tracking across planning cycles |
 | **Human Interface** | Natural language console | Operator queries and priority overrides mid-simulation |
+| **Evaluation** | Statistical Analysis | A/B comparison of agentic vs. non-agentic runs via burned area and human outcome metrics |
 
 ---
 
@@ -77,7 +78,6 @@ Simulates civilian agents (hikers and campers) with probabilistic movement, inju
 |---|---|
 | `UAVBase.py` | Base UAV class with physics (velocity, turn-rate, boundary repulsion), state machine (HANGER → TRAVELLING → CRUISING), and fuel management. Subclasses: `ReconUAV`, `FireControlUAV`, `RescueUAV`. |
 | `UAVSimulatorModule.py` | Thin wrapper that creates and steps the full UAV fleet. |
-| `RLTraining.py` | Supervised / RL training pipeline. Collects experience from random agent rollouts and trains SVM/RF policy models saved to `models/`. |
 
 ### `FirePrediction/`
 | File | Description |
@@ -95,7 +95,7 @@ Simulates civilian agents (hikers and campers) with probabilistic movement, inju
 ### `Pygame/`
 | File | Description |
 |---|---|
-| `run_simulation.py` | Main entry point. Creates all agents, runs the Pygame event loop, captures video frames, and guarantees video save on exit (via `try/finally`). |
+| `run_simulation.py` | Main entry point. Supports visual/headless modes, agentic/non-agentic toggling, and configurable step limits. Prints burned-area and human-outcome statistics on completion. |
 | `simulation_coordinator.py` | Invoked every N simulation steps. Captures the screen as a 500×500 PNG, runs UNet inference to produce a red/green risk mask PNG, and calls `CommandCenterAgent.update()`. |
 | `visualizer.py` | Renders the CA grid, UAV positions/waypoints/direction arrows, human states, home base (black square), and records MP4 output via `imageio`. |
 
@@ -126,7 +126,7 @@ Every `N` simulation steps (default: 20):
 4. **DispatchAgent** reads both images + telemetry + plan → issues a `DEPLOY`/`RECALL` command for **every** UAV  
 5. Commands are applied to the UAV fleet for the next N steps
 
-The operator can pause the simulation at any time (press **`P`**) and type a natural-language query or directive into the console. The `AssistantAgent` processes it and can update the knowledge graph to override priorities for subsequent planning cycles.
+The operator can pause the simulation at any time (press **`SPACE`**) and type a natural-language query or directive into the console. The `AssistantAgent` processes it and can update the knowledge graph to override priorities for subsequent planning cycles.
 
 ---
 
@@ -134,7 +134,7 @@ The operator can pause the simulation at any time (press **`P`**) and type a nat
 
 ### Prerequisites
 - Python 3.11+
-- An [Anthropic API key](https://console.anthropic.com/)
+- An [Anthropic API key](https://console.anthropic.com/) *(only required when running with the agentic workflow enabled)*
 
 ### 1. Install dependencies
 
@@ -150,7 +150,7 @@ pip install -r requirements.txt
 
 ### 2. Configure API key
 
-Create `AgenticWorkflow/.env`:
+Create `AgenticWorkflow/.env` *(skip if running with `--no-agentic`)*:
 ```
 ANTHROPIC_API_KEY=sk-ant-...
 ```
@@ -162,28 +162,73 @@ cd Pygame
 python run_simulation.py
 ```
 
-A 1000×1000 Pygame window opens. The simulation runs for up to 750 steps (configurable). An MP4 recording is automatically saved to `Pygame/video/human_behavior.mp4` on exit.
+#### CLI Arguments
 
-### Controls
+| Flag | Default | Description |
+|---|---|---|
+| `--no-agentic` | Off | Disable the LLM-based Agentic Workflow. UAVs operate on autonomous subsumption behaviours only. |
+| `--headless` | Off | Run without a Pygame window for fast data collection. Auto-exits after printing statistics. |
+| `--max-steps N` | `400` | Hard-stop the simulation after N steps. |
+
+#### Example Run Modes
+
+```bash
+# Full visual simulation with agentic workflow (default)
+python run_simulation.py
+
+# Visual simulation, UAVs only (no LLM calls)
+python run_simulation.py --no-agentic
+
+# Fast headless data collection, no agentic (maximum speed)
+python run_simulation.py --headless --no-agentic
+
+# Headless with agentic workflow (hidden Pygame surface for LLM screenshots)
+python run_simulation.py --headless
+
+# Custom step limit
+python run_simulation.py --headless --no-agentic --max-steps 1000
+```
+
+In visual mode, a 1000×1000 Pygame window opens. The simulation runs for up to 400 steps (configurable via `--max-steps`). An MP4 recording is automatically saved to `Pygame/video/human_behavior.mp4` on exit.
+
+### Controls (visual mode only)
 
 | Key | Action |
 |---|---|
-| `ESC` / close window | Exit and save video |
-| `P` | Pause and open operator console |
+| `ESC` / `Q` / close window | Exit and save video |
+| `SPACE` | Pause and open operator console (requires agentic workflow) |
+| `↑` / `↓` | Increase / decrease simulation speed (FPS) |
+| `S` | Save a screenshot to `screenshots/` |
 
 ---
 
-## Training the UAV Policies
+## Simulation Output & Statistics
 
-```bash
-cd UAVAgents
-python RLTraining.py
+At the end of every run, the simulation prints a statistics summary:
+
+```
+============================================================
+           SIMULATION COMPLETE — FINAL STATISTICS
+============================================================
+  Stop Reason        : Hard stop at 400 steps
+  Agentic Workflow   : DISABLED
+  Total Steps        : 400
+  Seed               : 42315
+  Grid Size          : 100x100 (10000 cells)
+  ─── Burned Area ───
+  Ash Cells          : 1234
+  Still Burning      : 56
+  Total Burned Area  : 1290 cells (12.9%)
+  ─── Human Outcomes ───
+  Alive              : 8
+  Rescued            : 5
+  Casualties         : 2
+============================================================
 ```
 
-Trained models are saved to `UAVAgents/models/`:
-- `recon_policy.pkl`
-- `extinguish_policy.pkl`
-- `rescue_policy.pkl`
+**Total Burned Area** = Ash cells + cells still actively burning at termination. This is the primary metric for statistical comparison between agentic and non-agentic runs.
+
+The random `seed` is printed so runs can be reproduced or paired across experimental conditions.
 
 ---
 

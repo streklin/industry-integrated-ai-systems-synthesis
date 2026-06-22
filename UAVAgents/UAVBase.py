@@ -83,15 +83,6 @@ class UAVBase:
         self.uav_type:UAVType = UAVType.BASE
         self.latest_messages = [self.x, self.y, self.fuel, self.state, None, None, False, False]
         
-        # RL / SVM specific attributes
-        self.svm_model = None
-        self.exploration_rate = 0.0
-    
-    def set_svm_model(self, model):
-        """
-        Load a trained SVM classifier policy model.
-        """
-        self.svm_model = model
 
     def go_home(self):
         """
@@ -131,36 +122,6 @@ class UAVBase:
                 detected_humans.append(human)
         return detected_humans
 
-    def get_grid_crop_features(self, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> np.ndarray:
-        """
-        Extract local grid crop around the UAV as binary feature vectors.
-        Returns a 1D vector of shape (2 * (2 * R + 1)^2,) where R = int(detection_range).
-        """
-        R = int(self.detection_range)
-        size = 2 * R + 1
-        fire_channel = np.zeros((size, size))
-        human_channel = np.zeros((size, size))
-        
-        cx, cy = int(self.x), int(self.y)
-        
-        active_humans = {}
-        for h in humans:
-            if h.activity_type not in (HumanAgentState.CASUALTY, HumanAgentState.RESCUED):
-                active_humans[(h.x, h.y)] = True
-                
-        for dx in range(-R, R + 1):
-            for dy in range(-R, R + 1):
-                gx, gy = cx + dx, cy + dy
-                row = dx + R
-                col = dy + R
-                if 0 <= gx < self.width and 0 <= gy < self.height:
-                    if ca_grid[gx][gy].state == WildFireState.BURNING:
-                        fire_channel[row, col] = 1.0
-                    if (gx, gy) in active_humans:
-                        human_channel[row, col] = 1.0
-                        
-        return np.concatenate([fire_channel.flatten(), human_channel.flatten()])
-
     def _get_boundary_override_action(self) -> int | None:
         """
         Safety layer applied before any policy action is returned.
@@ -194,30 +155,8 @@ class UAVBase:
         else:
             return 2  # Go Straight
 
-    def select_rl_action(self, ca_grid: list[list[CACell]], humans: list[HumanAgent]) -> int:
-        """
-        Select action (0: turn left, 1: turn right, 2: go straight) based on policy or exploration.
-        Boundary repulsion is always applied first as a safety override.
-        """
-        # Safety override: wall repulsion takes priority over all policies
-        wall_action = self._get_boundary_override_action()
-        if wall_action is not None:
-            return wall_action
 
-        if random.random() < self.exploration_rate:
-            return random.choice([0, 1, 2])
-
-        if self.svm_model is not None:
-            features = self.get_grid_crop_features(ca_grid, humans)
-            try:
-                action = int(self.svm_model.predict([features])[0])
-                return action
-            except Exception:
-                return 2
-        else:
-            return self.get_heuristic_action(ca_grid, humans)
-
-    def apply_rl_action(self, action: int):
+    def apply_action(self, action: int):
         """
         Apply the discrete steering action to update the bank angle.
         """
@@ -238,7 +177,6 @@ class UAVBase:
         target_x, target_y = None, None
         
         if self.uav_type in (UAVType.RECON, UAVType.EXTINGUISH):
-            # Try to find nearest fire in detection range first
             min_dist = float('inf')
             detected = self._get_detected_cells(ca_grid)
             for cell in detected:
@@ -247,36 +185,21 @@ class UAVBase:
                     if dist < min_dist:
                         min_dist = dist
                         target_x, target_y = cell[0] + 0.5, cell[1] + 0.5
-            
-            # If no fire in detection range, search grid for nearest fire
-            if target_x is None:
-                min_dist = float('inf')
-                for x in range(self.width):
-                    for y in range(self.height):
-                        if ca_grid[x][y].state == WildFireState.BURNING:
-                            dist = math.hypot(x - self.x, y - self.y)
-                            if dist < min_dist:
-                                min_dist = dist
-                                target_x, target_y = x + 0.5, y + 0.5
                                 
         elif self.uav_type == UAVType.RESCUE:
-            # Target is the nearest active human
             min_dist = float('inf')
             for human in humans:
                 if human.activity_type not in (HumanAgentState.CASUALTY, HumanAgentState.RESCUED):
                     dist = math.hypot(human.x - self.x, human.y - self.y)
-                    if dist < min_dist:
+                    if dist < min_dist and dist < self.detection_range:
                         min_dist = dist
                         target_x, target_y = human.x, human.y
 
-        # Fallback: no primary target found → steer toward grid centre so the
-        # UAV drifts back into a useful patrol area.
+        # fallback, if there is no target, go to the assigned waypoint.
         if target_x is None:
-            target_x = self.width / 2.0
-            target_y = self.height / 2.0
+            target_x = self.waypoint_x
+            target_y = self.waypoint_y
 
-        # Note: boundary repulsion is handled upstream in select_rl_action
-        # via _get_boundary_override_action() so we don't duplicate it here.
         dx = target_x - self.x
         dy = target_y - self.y
         target_angle = math.atan2(dy, dx)
@@ -294,6 +217,8 @@ class UAVBase:
         """
         Update the state of the UAV.
         """
+
+        # if in the hanger, stay there.
         if self.state == UAVState.HANGER:
             self.velocity = 0.0
             self.acceleration = 0.0
@@ -306,8 +231,9 @@ class UAVBase:
 
         # Run RL action selection only when cruising at destination
         if self.state == UAVState.CRUISING:
-            action = self.select_rl_action(ca_grid, humans)
-            self.apply_rl_action(action)
+            action = self.get_heuristic_action(ca_grid, humans)
+            self.apply_action(action)
+
 
         self.velocity = min(self.velocity + self.acceleration * delta_time, self.max_velocity)
         
@@ -320,6 +246,7 @@ class UAVBase:
 
         self.fuel -= 1
 
+        # if fuel is low, go home.
         if self.fuel <= 0 and self.state != UAVState.RETURNING and self.state != UAVState.HANGER:
             self.go_home()
 
@@ -327,6 +254,7 @@ class UAVBase:
         if self.state in (UAVState.TRAVELLING, UAVState.RETURNING):
             self._update_travelling(delta_time=delta_time)
 
+        # build the messages to give the Agent.
         messages = []
         messages.append(self.x)
         messages.append(self.y)
