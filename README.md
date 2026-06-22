@@ -14,7 +14,7 @@ This project implements a fully integrated AI system that autonomously manages a
 | **Environment** | Cellular Automaton (CA) | Probabilistic wildfire spread simulation |
 | **UAV Behaviour** | Subsumption Architecture | Per-UAV autonomous flight, fire-fighting, and rescue behaviour |
 | **Risk Prediction** | UNet (CNN) | Real-time fire-spread risk map from satellite imagery |
-| **Command & Control** | LLM Agentic Workflow (Claude Sonnet/Haiku) | High-level strategy planning and UAV dispatch |
+| **Command & Control** | LLM Agentic Workflow (Claude Haiku) | High-level strategy planning and UAV dispatch (using Haiku for budget reasons) |
 | **State Memory** | Knowledge Graph (MGraph) | Persistent goal and priority tracking across planning cycles |
 | **Human Interface** | Natural language console | Operator queries and priority overrides mid-simulation |
 | **Evaluation** | Statistical Analysis | A/B comparison of agentic vs. non-agentic runs via burned area and human outcome metrics |
@@ -40,12 +40,12 @@ This project implements a fully integrated AI system that autonomously manages a
           │   CommandCenterAgent    │
           │                         │
           │  ┌─────────────────┐    │
-          │  │ StrategyAgent   │    │  claude-sonnet-4-5
+          │  │ StrategyAgent   │    │  claude-haiku-4-5
           │  │ (PlanGuidelines)│◄───┤  + Knowledge Graph
           │  └────────┬────────┘    │
           │           │             │
           │  ┌────────▼────────┐    │
-          │  │ DispatchAgent   │    │  claude-sonnet-4-5
+          │  │ DispatchAgent   │    │  claude-haiku-4-5
           │  │ (UAV Commands)  │◄───┤  + Knowledge Graph
           │  └─────────────────┘    │
           │                         │
@@ -88,7 +88,7 @@ Simulates civilian agents (hikers and campers) with probabilistic movement, inju
 ### `AgenticWorkflow/`
 | File | Description |
 |---|---|
-| `agentic_workflow.py` | Three `pydantic-ai` agents sharing a common MGraph knowledge graph. `StrategyAgent` (Sonnet) produces a `PlanGuidelines` object every N cycles. `DispatchAgent` (Sonnet) translates the plan into per-UAV `UAVCommand` objects. `AssistantAgent` (Haiku) answers operator queries in natural language. |
+| `agentic_workflow.py` | Three `pydantic-ai` agents sharing a common MGraph knowledge graph. `StrategyAgent` (Haiku) produces a `PlanGuidelines` object every N cycles. `DispatchAgent` (Haiku) translates the plan into per-UAV `UAVCommand` objects. `AssistantAgent` (Haiku) answers operator queries in natural language. *(All agents use Claude Haiku 4.5 for budget reasons).* |
 | `graphdb.py` | Thread-safe wrapper around MGraph with a domain ontology for LONG TERM GOAL → GOAL → GOAL_TYPE / POSITION / PRIORITY. All methods serialised with `threading.Lock` to prevent concurrent-write crashes from pydantic-ai's parallel tool dispatch. |
 | `pydantic_models.py` | Shared Pydantic response schemas: `CommandCenterResponse`, `UAVCommand`, `PlanGuidelines`, `PlanGuideline`. |
 
